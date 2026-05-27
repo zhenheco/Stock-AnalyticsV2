@@ -9,6 +9,7 @@
     "check:production": "node scripts/production-health.mjs",
     "check:production:ready": "node scripts/production-health.mjs --require-ready",
     "check:secrets": "node scripts/secrets-doctor.mjs",
+    "complete:production": "node scripts/complete-production.mjs",
     "deploy": "pnpm deploy:worker && pnpm deploy:web",
     "deploy:web": "pnpm --filter @stock-analytics/web run deploy",
     "deploy:worker": "pnpm --filter @stock-analytics/worker run deploy",

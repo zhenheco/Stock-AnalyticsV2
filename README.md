@@ -94,9 +94,11 @@ After the 1Password item is filled, sync it into Cloudflare and run a production
 
 ```bash
 pnpm sync:finmind-secret
+pnpm complete:production
 ```
 
 Expected final readiness is `finmind-signals=ready` when token-backed ingestion works, or `finmind-signals=degraded` when anonymous limited price/chip/revenue rows are flowing. If the token is still empty, the sync script exits before touching Cloudflare secrets.
+`pnpm complete:production` runs the closeout sequence: secret presence check, FinMind secret sync plus ingestion smoke, then the strict production ready gate.
 
 ## Deployment
 
