@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist } from "./api";
-import { RadarTable } from "./components/RadarTable";
+import { RadarTable, type RadarFilters } from "./components/RadarTable";
 import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
 import { Watchlist } from "./pages/Watchlist";
@@ -28,6 +28,7 @@ export function App() {
 
 function RadarRoute() {
   const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number }>>({ status: "loading" });
+  const [filters, setFilters] = useState<RadarFilters>({ minScore: 0, source: "all", tag: "all", sort: "score" });
 
   useEffect(() => {
     Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse()])
@@ -77,7 +78,7 @@ function RadarRoute() {
         {state.status === "ready" ? (
           <>
             <SourceHealth runs={runs} />
-            <RadarTable candidates={candidates} />
+            <RadarTable candidates={candidates} filters={filters} onFiltersChange={setFilters} />
           </>
         ) : null}
       </section>

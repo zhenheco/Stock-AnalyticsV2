@@ -1,10 +1,26 @@
-import type { Candidate } from "@stock-analytics/shared";
+import type { Candidate, SourceKind } from "@stock-analytics/shared";
 
 interface RadarTableProps {
   candidates: Candidate[];
+  filters?: RadarFilters;
+  onFiltersChange?: (filters: RadarFilters) => void;
 }
 
-export function RadarTable({ candidates }: RadarTableProps) {
+export interface RadarFilters {
+  minScore: number;
+  source: SourceKind | "all";
+  tag: string | "all";
+  sort: "score" | "latest";
+}
+
+const DEFAULT_FILTERS: RadarFilters = {
+  minScore: 0,
+  source: "all",
+  tag: "all",
+  sort: "score"
+};
+
+export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersChange }: RadarTableProps) {
   if (candidates.length === 0) {
     return (
       <section className="empty-state" aria-live="polite">
@@ -15,61 +31,126 @@ export function RadarTable({ candidates }: RadarTableProps) {
     );
   }
 
+  const visibleCandidates = filterAndSortCandidates(candidates, filters);
+  const sources = unique(candidates.flatMap((candidate) => candidate.sources));
+  const tags = unique(candidates.flatMap((candidate) => candidate.tags)).sort((left, right) => left.localeCompare(right, "zh-Hant"));
+
+  function updateFilters(next: Partial<RadarFilters>) {
+    onFiltersChange?.({ ...filters, ...next });
+  }
+
   return (
-    <div className="radar-shell">
-      <table className="radar-table">
-        <thead>
-          <tr>
-            <th>股票</th>
-            <th>分數</th>
-            <th>事件</th>
-            <th>來源</th>
-            <th>標籤</th>
-            <th>更新</th>
-            <th aria-label="open detail" />
-          </tr>
-        </thead>
-        <tbody>
-          {candidates.map((candidate) => (
-            <tr key={candidate.symbol}>
-              <td>
-                <div className="ticker-stack">
-                  <strong>{candidate.symbol}</strong>
-                  <span>{candidate.name}</span>
-                </div>
-              </td>
-              <td>
-                <div className="score-meter" aria-label={`score ${candidate.score}`}>
-                  <span style={{ width: `${Math.min(100, candidate.score * 10)}%` }} />
-                  <strong>{candidate.score.toFixed(1)}</strong>
-                </div>
-              </td>
-              <td>
-                <div className="event-cell">
-                  <strong>{candidate.latestTitle}</strong>
-                  <span>{candidate.reason}</span>
-                </div>
-              </td>
-              <td>
-                <div className="source-pills">
-                  {candidate.sources.map((source) => <span key={source}>{source}</span>)}
-                </div>
-              </td>
-              <td>
-                <div className="tag-list">
-                  {candidate.tags.map((tag) => <span key={tag}>{tag}</span>)}
-                </div>
-              </td>
-              <td>{formatTime(candidate.latestAt)}</td>
-              <td>
-                <a className="detail-link" href={`/stock/${candidate.symbol}`}>研究</a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="radar-controls" aria-label="candidate filters">
+        <label>
+          <span>最低分數</span>
+          <input
+            min="0"
+            max="10"
+            step="0.5"
+            type="number"
+            value={filters.minScore}
+            onChange={(event) => updateFilters({ minScore: Number(event.currentTarget.value) || 0 })}
+          />
+        </label>
+        <label>
+          <span>來源</span>
+          <select value={filters.source} onChange={(event) => updateFilters({ source: event.currentTarget.value as RadarFilters["source"] })}>
+            <option value="all">全部</option>
+            {sources.map((source) => <option key={source} value={source}>{source}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>事件標籤</span>
+          <select value={filters.tag} onChange={(event) => updateFilters({ tag: event.currentTarget.value })}>
+            <option value="all">全部</option>
+            {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>排序</span>
+          <select value={filters.sort} onChange={(event) => updateFilters({ sort: event.currentTarget.value as RadarFilters["sort"] })}>
+            <option value="score">分數</option>
+            <option value="latest">最新事件</option>
+          </select>
+        </label>
+        <strong>{`顯示 ${visibleCandidates.length} / ${candidates.length}`}</strong>
+      </div>
+      {visibleCandidates.length === 0 ? (
+        <section className="empty-state compact-empty" aria-live="polite">
+          <p className="empty-kicker">NO MATCH</p>
+          <h2>沒有符合條件的候選股</h2>
+        </section>
+      ) : (
+        <div className="radar-shell">
+          <table className="radar-table">
+            <thead>
+              <tr>
+                <th>股票</th>
+                <th>分數</th>
+                <th>事件</th>
+                <th>來源</th>
+                <th>標籤</th>
+                <th>更新</th>
+                <th aria-label="open detail" />
+              </tr>
+            </thead>
+            <tbody>
+              {visibleCandidates.map((candidate) => (
+                <tr key={candidate.symbol}>
+                  <td>
+                    <div className="ticker-stack">
+                      <strong>{candidate.symbol}</strong>
+                      <span>{candidate.name}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="score-meter" aria-label={`score ${candidate.score}`}>
+                      <span style={{ width: `${Math.min(100, candidate.score * 10)}%` }} />
+                      <strong>{candidate.score.toFixed(1)}</strong>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="event-cell">
+                      <strong>{candidate.latestTitle}</strong>
+                      <span>{candidate.reason}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="source-pills">
+                      {candidate.sources.map((source) => <span key={source}>{source}</span>)}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="tag-list">
+                      {candidate.tags.map((tag) => <span key={tag}>{tag}</span>)}
+                    </div>
+                  </td>
+                  <td>{formatTime(candidate.latestAt)}</td>
+                  <td>
+                    <a className="detail-link" href={`/stock/${candidate.symbol}`}>研究</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
+}
+
+export function filterAndSortCandidates(candidates: Candidate[], filters: RadarFilters): Candidate[] {
+  return candidates
+    .filter((candidate) => candidate.score >= filters.minScore)
+    .filter((candidate) => filters.source === "all" || candidate.sources.includes(filters.source))
+    .filter((candidate) => filters.tag === "all" || candidate.tags.includes(filters.tag))
+    .sort((left, right) => {
+      if (filters.sort === "latest") {
+        return right.latestAt.localeCompare(left.latestAt);
+      }
+      return right.score - left.score || right.latestAt.localeCompare(left.latestAt);
+    });
 }
 
 function formatTime(value: string): string {
@@ -80,4 +161,8 @@ function formatTime(value: string): string {
     minute: "2-digit",
     hour12: false
   }).format(new Date(value));
+}
+
+function unique<T>(items: T[]): T[] {
+  return [...new Set(items)];
 }

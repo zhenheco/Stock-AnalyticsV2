@@ -140,6 +140,45 @@ h2 {
   border-top: 1px solid var(--line);
 }
 
+.radar-controls {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(130px, 0.7fr) minmax(150px, 1fr) minmax(130px, 0.7fr) auto;
+  gap: 10px;
+  align-items: end;
+  border-top: 1px solid var(--line);
+  padding: 14px 0 16px;
+}
+
+.radar-controls label {
+  display: grid;
+  gap: 6px;
+}
+
+.radar-controls span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.radar-controls input,
+.radar-controls select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111414;
+  color: #f1efe4;
+  font: inherit;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.radar-controls strong {
+  color: var(--green);
+  white-space: nowrap;
+  min-height: 40px;
+  display: grid;
+  place-items: center end;
+}
+
 .radar-table {
   width: 100%;
   border-collapse: collapse;
@@ -230,6 +269,10 @@ h2 {
   border: 1px solid var(--line);
   background: var(--panel);
   padding: 28px;
+}
+
+.compact-empty {
+  padding: 18px;
 }
 
 .source-health {
@@ -428,7 +471,12 @@ h2 {
 
   .timeline li,
   .watch-row,
-  .watchlist-form {
+  .watchlist-form,
+  .radar-controls {
     grid-template-columns: 1fr;
+  }
+
+  .radar-controls strong {
+    place-items: start;
   }
 }

@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RadarTable } from "../src/components/RadarTable";
+import { filterAndSortCandidates, RadarTable, type RadarFilters } from "../src/components/RadarTable";
 import type { Candidate } from "@stock-analytics/shared";
 
 describe("RadarTable", () => {
@@ -55,4 +55,66 @@ describe("RadarTable", () => {
     expect(html).toContain("公告");
     expect(html).toContain("催化程度較低");
   });
+
+  it("filters candidates by minimum score, source, and tag", () => {
+    const filters: RadarFilters = {
+      minScore: 6,
+      source: "rss",
+      tag: "AI",
+      sort: "score"
+    };
+
+    expect(filterAndSortCandidates([
+      candidate({ symbol: "2330", score: 8.4, sources: ["ptt", "rss"], tags: ["AI"] }),
+      candidate({ symbol: "2356", score: 7.2, sources: ["rss"], tags: ["公告"] }),
+      candidate({ symbol: "1402", score: 5.9, sources: ["ptt"], tags: ["AI"] })
+    ], filters).map((item) => item.symbol)).toEqual(["2330"]);
+  });
+
+  it("sorts visible candidates by latest event time when requested", () => {
+    const visible = filterAndSortCandidates([
+      candidate({ symbol: "2330", score: 9.5, latestAt: "2026-05-27T01:00:00.000Z" }),
+      candidate({ symbol: "2328", score: 6.5, latestAt: "2026-05-27T06:00:00.000Z" })
+    ], {
+      minScore: 0,
+      source: "all",
+      tag: "all",
+      sort: "latest"
+    });
+
+    expect(visible.map((item) => item.symbol)).toEqual(["2328", "2330"]);
+  });
+
+  it("renders the active visible candidate count", () => {
+    const html = renderToString(
+      <RadarTable
+        candidates={[
+          candidate({ symbol: "2330", score: 8.4, sources: ["rss"], tags: ["AI"] }),
+          candidate({ symbol: "2356", score: 0.6, sources: ["rss"], tags: ["公告"] })
+        ]}
+        filters={{ minScore: 6, source: "all", tag: "all", sort: "score" }}
+        onFiltersChange={() => undefined}
+      />
+    );
+
+    expect(html).toContain("顯示 1 / 2");
+    expect(html).toContain("最低分數");
+    expect(html).toContain("事件標籤");
+  });
 });
+
+function candidate(overrides: Partial<Candidate>): Candidate {
+  return {
+    symbol: "2330",
+    name: "台積電",
+    score: 8,
+    eventCount: 1,
+    sourceCount: 1,
+    latestTitle: "台積電 2330 AI 新聞",
+    latestAt: "2026-05-27T02:00:00.000Z",
+    sources: ["rss"],
+    tags: ["AI"],
+    reason: "rss 事件訊號命中",
+    ...overrides
+  };
+}
