@@ -10,4 +10,16 @@ describe("Watchlist", () => {
     expect(html).toContain("股票代號");
     expect(html).toContain("管理 Token");
   });
+
+  it("renders remove actions for tracked symbols", () => {
+    const html = renderToString(<Watchlist
+      entries={[
+        { symbol: "2330", name: "台積電", addedAt: "2026-05-27T00:00:00.000Z" }
+      ]}
+      onRemove={async () => undefined}
+    />);
+
+    expect(html).toContain("2330");
+    expect(html).toContain("移除");
+  });
 });

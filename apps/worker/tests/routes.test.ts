@@ -154,6 +154,39 @@ describe("worker routes", () => {
     expect(body.watchlist).toEqual([{ symbol: "2330", name: "台積電", addedAt: expect.any(String) }]);
   });
 
+  it("removes watchlist entries with a valid admin token", async () => {
+    const repo = new MemoryRepository();
+    await repo.addWatchlist({ symbol: "2330", name: "台積電" });
+    const app = createApp({ repo, adminToken: "secret" });
+
+    const denied = await app.fetch(new Request("https://api.test/api/watchlist/2330", {
+      method: "DELETE"
+    }));
+    const removed = await app.fetch(new Request("https://api.test/api/watchlist/2330", {
+      method: "DELETE",
+      headers: { "x-admin-token": "secret" }
+    }));
+    const listed = await app.fetch(new Request("https://api.test/api/watchlist"));
+    const body = await listed.json() as { watchlist: unknown[] };
+
+    expect(denied.status).toBe(401);
+    expect(removed.status).toBe(202);
+    expect(await removed.json()).toEqual({ removed: true });
+    expect(body.watchlist).toEqual([]);
+  });
+
+  it("allows browser preflight for watchlist delete requests", async () => {
+    const app = createApp({ repo: new MemoryRepository(), adminToken: "secret" });
+
+    const response = await app.fetch(new Request("https://api.test/api/watchlist/2330", {
+      method: "OPTIONS"
+    }));
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-methods")).toContain("DELETE");
+    expect(response.headers.get("access-control-allow-headers")).toContain("x-admin-token");
+  });
+
   it("runs fixture ingestion through an admin endpoint", async () => {
     const app = createApp({ repo: new MemoryRepository(), adminToken: "secret", ingestToken: "ingest-secret" });
 

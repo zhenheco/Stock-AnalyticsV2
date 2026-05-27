@@ -77,4 +77,10 @@ export class MemoryRepository implements Repository {
     this.watchlist.push(created);
     return created;
   }
+
+  async removeWatchlist(symbol: string): Promise<boolean> {
+    const before = this.watchlist.length;
+    this.watchlist = this.watchlist.filter((item) => item.symbol !== symbol);
+    return this.watchlist.length < before;
+  }
 }

@@ -13,4 +13,5 @@ export interface Repository {
   saveSourceRuns(runs: SourceRun[]): Promise<void>;
   listWatchlist(): Promise<WatchlistEntry[]>;
   addWatchlist(entry: Omit<WatchlistEntry, "addedAt">): Promise<WatchlistEntry>;
+  removeWatchlist(symbol: string): Promise<boolean>;
 }

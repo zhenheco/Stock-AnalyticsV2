@@ -638,9 +638,28 @@ h2 {
 }
 
 .watch-row {
-  grid-template-columns: 120px minmax(0, 1fr) auto;
-  text-decoration: none;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   color: inherit;
+}
+
+.watch-row a {
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  text-decoration: none;
+}
+
+.watch-row button {
+  background: transparent;
+  border: 1px solid rgba(239, 111, 108, 0.6);
+  border-radius: 6px;
+  color: #ffd6d4;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 8px 11px;
 }
 
 @media (max-width: 760px) {
@@ -668,5 +687,9 @@ h2 {
 
   .radar-controls strong {
     place-items: start;
+  }
+
+  .watch-row a {
+    grid-template-columns: 1fr;
   }
 }

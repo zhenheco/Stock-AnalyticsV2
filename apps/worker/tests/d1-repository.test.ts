@@ -19,6 +19,17 @@ describe("D1Repository", () => {
       expect.objectContaining({ symbol: "2330", name: "台積電" })
     ]);
   });
+
+  it("removes watchlist entries", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+
+    await repo.addWatchlist({ symbol: "2330", name: "台積電" });
+
+    await expect(repo.removeWatchlist("2330")).resolves.toBe(true);
+    await expect(repo.removeWatchlist("2330")).resolves.toBe(false);
+    await expect(repo.listWatchlist()).resolves.toEqual([]);
+  });
 });
 
 function candidate(symbol: string, name: string): Candidate {
@@ -38,6 +49,7 @@ function candidate(symbol: string, name: string): Candidate {
 
 class FakeD1Database {
   readonly candidates = new Map<string, Record<string, unknown>>();
+  readonly watchlist = new Map<string, Record<string, unknown>>();
 
   prepare(query: string): FakeD1PreparedStatement {
     return new FakeD1PreparedStatement(this, query);
@@ -69,6 +81,12 @@ class FakeD1PreparedStatement {
           .sort((left, right) => Number(right.score) - Number(left.score))
           .map((row) => row as T)
       };
+    }
+    if (this.query.includes("FROM watchlist")) {
+      const rows = this.query.includes("WHERE symbol = ?")
+        ? [...this.db.watchlist.values()].filter((row) => row.symbol === this.values[0])
+        : [...this.db.watchlist.values()].sort((left, right) => String(left.symbol).localeCompare(String(right.symbol)));
+      return { results: rows.map((row) => row as T) };
     }
     return { results: [] };
   }
@@ -103,6 +121,19 @@ class FakeD1PreparedStatement {
         tags_json: tagsJson,
         reason
       });
+    }
+    if (this.query.includes("INSERT OR IGNORE INTO watchlist")) {
+      const [symbol, name, addedAt] = this.values;
+      if (!this.db.watchlist.has(String(symbol))) {
+        this.db.watchlist.set(String(symbol), {
+          symbol,
+          name,
+          added_at: addedAt
+        });
+      }
+    }
+    if (this.query.includes("DELETE FROM watchlist")) {
+      this.db.watchlist.delete(String(this.values[0]));
     }
     return {};
   }

@@ -36,6 +36,15 @@ export async function addWatchlistEntry(input: { symbol: string; name: string; a
   });
 }
 
+export async function removeWatchlistEntry(input: { symbol: string; adminToken: string }): Promise<{ removed: boolean }> {
+  return fetchJson<{ removed: boolean }>(`/api/watchlist/${encodeURIComponent(input.symbol)}`, {
+    method: "DELETE",
+    headers: {
+      "x-admin-token": input.adminToken
+    }
+  });
+}
+
 export async function fetchSourceRuns(): Promise<{ runs: SourceRun[] }> {
   return fetchJson<{ runs: SourceRun[] }>("/api/source-runs");
 }

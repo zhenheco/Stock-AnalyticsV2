@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
-import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, triggerAdminIngest } from "./api";
+import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest } from "./api";
 import { readStoredAdminToken } from "./adminToken";
 import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
@@ -175,10 +175,20 @@ function WatchlistRoute() {
     });
   }
 
+  async function handleRemove(input: { symbol: string; adminToken: string }) {
+    await removeWatchlistEntry(input);
+    setState((current) => {
+      if (current.status !== "ready") {
+        return current;
+      }
+      return { status: "ready", data: { watchlist: current.data.watchlist.filter((item) => item.symbol !== input.symbol) } };
+    });
+  }
+
   return (
     <>
       {state.status === "error" ? <ErrorPanel message={state.message} /> : null}
-      <Watchlist entries={state.status === "ready" ? state.data.watchlist : []} onAdd={handleAdd} />
+      <Watchlist entries={state.status === "ready" ? state.data.watchlist : []} onAdd={handleAdd} onRemove={handleRemove} />
     </>
   );
 }

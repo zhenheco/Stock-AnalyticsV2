@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { triggerAdminIngest } from "../src/api";
+import { removeWatchlistEntry, triggerAdminIngest } from "../src/api";
 
 describe("api", () => {
   afterEach(() => {
@@ -21,6 +21,22 @@ describe("api", () => {
         "x-admin-token": "secret-token"
       },
       body: "{}"
+    });
+  });
+
+  it("removes a watchlist entry with the token only in the request header", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ removed: true }), {
+      headers: { "content-type": "application/json" }
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(removeWatchlistEntry({ symbol: "2330", adminToken: "secret-token" })).resolves.toEqual({ removed: true });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/watchlist/2330", {
+      method: "DELETE",
+      headers: {
+        "x-admin-token": "secret-token"
+      }
     });
   });
 });

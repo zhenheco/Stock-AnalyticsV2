@@ -5,9 +5,10 @@ import { readStoredAdminToken, storeAdminToken } from "../adminToken";
 interface WatchlistProps {
   entries: WatchlistEntry[];
   onAdd?: (input: { symbol: string; name: string; adminToken: string }) => Promise<void>;
+  onRemove?: (input: { symbol: string; adminToken: string }) => Promise<void>;
 }
 
-export function Watchlist({ entries, onAdd }: WatchlistProps) {
+export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
   const [adminToken, setAdminToken] = useState(() => readStoredAdminToken());
@@ -24,6 +25,17 @@ export function Watchlist({ entries, onAdd }: WatchlistProps) {
       setMessage("已加入追蹤清單");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "新增失敗");
+    }
+  }
+
+  async function handleRemove(symbol: string) {
+    setMessage(null);
+    storeAdminToken(adminToken);
+    try {
+      await onRemove?.({ symbol, adminToken });
+      setMessage("已移除追蹤");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "移除失敗");
     }
   }
 
@@ -58,11 +70,14 @@ export function Watchlist({ entries, onAdd }: WatchlistProps) {
         {entries.length === 0 ? (
           <p className="muted">目前沒有追蹤股票。MVP 可先用 API 加入，後續再補互動表單。</p>
         ) : entries.map((entry) => (
-          <a className="watch-row" key={entry.symbol} href={`/stock/${entry.symbol}`}>
-            <strong>{entry.symbol}</strong>
-            <span>{entry.name}</span>
+          <div className="watch-row" key={entry.symbol}>
+            <a href={`/stock/${entry.symbol}`}>
+              <strong>{entry.symbol}</strong>
+              <span>{entry.name}</span>
+            </a>
             <time>{new Date(entry.addedAt).toLocaleDateString("zh-TW")}</time>
-          </a>
+            {onRemove ? <button type="button" onClick={() => void handleRemove(entry.symbol)}>移除</button> : null}
+          </div>
         ))}
       </section>
     </main>

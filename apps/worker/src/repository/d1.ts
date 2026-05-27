@@ -148,6 +148,16 @@ export class D1Repository implements Repository {
       .run();
     return { ...entry, addedAt };
   }
+
+  async removeWatchlist(symbol: string): Promise<boolean> {
+    const existing = await this.db.prepare("SELECT symbol FROM watchlist WHERE symbol = ?")
+      .bind(symbol)
+      .all<{ symbol: string }>();
+    await this.db.prepare("DELETE FROM watchlist WHERE symbol = ?")
+      .bind(symbol)
+      .run();
+    return Boolean(existing.results?.length);
+  }
 }
 
 interface CandidateRow {

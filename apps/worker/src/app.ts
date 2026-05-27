@@ -97,6 +97,20 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     return json(entry, 201);
   }
 
+  const watchlistDeleteMatch = url.pathname.match(/^\/api\/watchlist\/([^/]+)$/);
+  if (watchlistDeleteMatch?.[1] && request.method === "DELETE") {
+    const denied = requireAdmin(request, options.adminToken);
+    if (denied) {
+      return denied;
+    }
+
+    const symbol = watchlistDeleteMatch[1].toUpperCase();
+    if (!isValidSymbol(symbol)) {
+      return json({ error: "Invalid watchlist symbol" }, 400);
+    }
+    return json({ removed: await options.repo.removeWatchlist(symbol) }, 202);
+  }
+
   if (url.pathname === "/api/admin/run-ingest" && request.method === "POST") {
     const denied = requireAdmin(request, options.adminToken);
     if (denied) {
@@ -197,8 +211,12 @@ function isWatchlistInput(input: unknown): input is { symbol: string; name: stri
     return false;
   }
   const record = input as Record<string, unknown>;
-  return typeof record.symbol === "string" && /^\d{4,6}[A-Z]?$/.test(record.symbol)
+  return typeof record.symbol === "string" && isValidSymbol(record.symbol)
     && typeof record.name === "string" && record.name.trim().length > 0;
+}
+
+function isValidSymbol(symbol: string): boolean {
+  return /^\d{4,6}[A-Z]?$/.test(symbol);
 }
 
 function isAdminIngestInput(input: unknown): input is { now?: string; sources?: IngestionSources } {
@@ -250,7 +268,7 @@ function json(data: unknown, status = 200): Response {
 function corsHeaders(): Record<string, string> {
   return {
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
     "access-control-allow-headers": "content-type,x-admin-token"
   };
 }
