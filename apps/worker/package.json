@@ -1,0 +1,19 @@
+{
+  "name": "@stock-analytics/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stock-analytics/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9",
+    "wrangler": "^3.91.0"
+  }
+}

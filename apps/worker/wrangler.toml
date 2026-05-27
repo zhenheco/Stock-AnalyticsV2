@@ -1,0 +1,11 @@
+name = "stock-analytics-v2-worker"
+main = "src/index.ts"
+compatibility_date = "2026-05-27"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stock-analytics-v2"
+database_id = "local-placeholder"
