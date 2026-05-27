@@ -67,6 +67,21 @@ describe("SourceHealth", () => {
     expect(html).toContain("FinMind token 尚未設定");
     expect(html).toContain("價格與籌碼資料暫停");
   });
+
+  it("translates anonymous FinMind signal mode without saying price data is paused", () => {
+    const run = sourceRun({
+      source: "finmind",
+      status: "partial",
+      itemCount: 3,
+      message: "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+    });
+
+    expect(sourceRunAdvice(run)).toBe("FinMind 價格與籌碼已用免 token 降級模式接通；設定 token 可提高額度穩定性。");
+
+    const html = renderToString(<SourceHealth runs={[run]} />);
+    expect(html).toContain("免 token 降級模式接通");
+    expect(html).not.toContain("價格與籌碼資料暫停");
+  });
 });
 
 function sourceRun(overrides: Partial<SourceRun>): SourceRun {

@@ -273,6 +273,14 @@ function checkFinMindSignals(latestRuns: SourceRun[]): ReadinessCheck {
   if (finmind?.status === "ok") {
     return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "ready", message: "FinMind 價格與籌碼資料已接通" };
   }
+  if (finmind?.message?.includes("anonymous limited price/chip")) {
+    return {
+      id: "finmind-signals",
+      label: "FinMind 價格/籌碼",
+      status: "degraded",
+      message: "FinMind 價格與籌碼資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
+    };
+  }
   if (finmind?.message?.includes("FINMIND_TOKEN")) {
     return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格與籌碼資料未進入事件管線" };
   }

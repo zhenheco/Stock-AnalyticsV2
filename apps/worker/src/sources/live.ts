@@ -103,23 +103,28 @@ async function fetchFinMindSources(
 
   const [stockInfoRows, priceRows, institutionalRows, marginRows] = await Promise.all([
     fetchFinMindStockInfoRows(fetcher, env.FINMIND_TOKEN),
-    env.FINMIND_TOKEN ? fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockPrice") : Promise.resolve([]),
-    env.FINMIND_TOKEN ? fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockInstitutionalInvestorsBuySell") : Promise.resolve([]),
-    env.FINMIND_TOKEN ? fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMarginPurchaseShortSale") : Promise.resolve([])
+    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockPrice"),
+    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockInstitutionalInvestorsBuySell"),
+    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMarginPurchaseShortSale")
   ]);
 
   const flatRows = [...priceRows, ...institutionalRows, ...marginRows].flat();
   const itemCount = flatRows.length + stockInfoRows.length;
-  const missingSignalConfig = !env.FINMIND_TOKEN || symbols.length === 0;
+  const missingSignalConfig = symbols.length === 0;
+  const anonymousSignalRows = !env.FINMIND_TOKEN && flatRows.length > 0;
   return {
     rows: flatRows,
     stockInfoRows,
     run: buildRun(
       "finmind",
       startedAt,
-      itemCount > 0 && !missingSignalConfig ? "ok" : "partial",
+      itemCount > 0 && !missingSignalConfig && !anonymousSignalRows ? "ok" : "partial",
       itemCount,
-      missingSignalConfig ? "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip data" : itemCount > 0 ? undefined : "No FinMind rows returned"
+      missingSignalConfig
+        ? "FINMIND_SYMBOLS not configured for price/chip data"
+        : anonymousSignalRows
+          ? "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+          : itemCount > 0 ? undefined : "No FinMind rows returned"
     )
   };
 }
@@ -140,7 +145,7 @@ async function fetchFinMindStockInfoRows(fetcher: typeof fetch, token: string | 
 
 async function fetchFinMindRowsByDataset(
   fetcher: typeof fetch,
-  token: string,
+  token: string | undefined,
   symbols: string[],
   now: string,
   dataset: "TaiwanStockPrice" | "TaiwanStockInstitutionalInvestorsBuySell" | "TaiwanStockMarginPurchaseShortSale"
@@ -156,7 +161,7 @@ async function fetchFinMindRowsByDataset(
     url.searchParams.set("start_date", now.slice(0, 10));
 
     const response = await safeFetch(fetcher, url.toString(), {
-      headers: new Headers({ authorization: `Bearer ${token}` })
+      ...(token ? { headers: new Headers({ authorization: `Bearer ${token}` }) } : {})
     });
     if (!response?.ok) {
       return [];

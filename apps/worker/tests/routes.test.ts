@@ -99,6 +99,52 @@ describe("worker routes", () => {
     ]));
   });
 
+  it("marks anonymous FinMind price and chip data as degraded instead of missing", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
+      symbol: String(1000 + index),
+      name: `公司${index}`,
+      securityType: "stock" as const,
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    })));
+    await repo.saveCandidates([{
+      symbol: "2330",
+      name: "台積電",
+      score: 8.4,
+      eventCount: 3,
+      sourceCount: 3,
+      latestTitle: "2330 台積電 close 2300 volume 40272350",
+      latestAt: "2026-05-27T05:00:00.000Z",
+      sources: ["rss", "ptt", "finmind"],
+      tags: ["AI", "價格量能"],
+      reason: "事件訊號"
+    }]);
+    await repo.saveSourceRuns([
+      sourceRun({ source: "rss", status: "ok", itemCount: 50 }),
+      sourceRun({ source: "ptt", status: "ok", itemCount: 10 }),
+      sourceRun({
+        source: "finmind",
+        status: "partial",
+        itemCount: 3,
+        message: "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+      })
+    ]);
+    const app = createApp({ repo, adminToken: "secret" });
+
+    const response = await app.fetch(new Request("https://api.test/api/data-readiness"));
+    const body = await response.json() as any;
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("degraded");
+    expect(body.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "finmind-signals",
+        status: "degraded",
+        message: "FinMind 價格與籌碼資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
+      })
+    ]));
+  });
+
   it("returns universe metadata for connected Taiwan stock master data", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse([{

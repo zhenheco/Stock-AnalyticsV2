@@ -215,6 +215,52 @@ describe("fetchLiveSources", () => {
     ]));
   });
 
+  it("fetches anonymous FinMind price and chip rows when token is missing but symbols are configured", async () => {
+    const requested: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        FINMIND_SYMBOLS: "2330",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input, init) => {
+        const url = String(input);
+        if (url.includes("finmindtrade")) {
+          requested.push(`${init?.headers instanceof Headers ? init.headers.get("authorization") : ""} ${url}`);
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        if (url.includes("TaiwanStockPrice")) {
+          return jsonResponse({ data: [{ stock_id: "2330", stock_name: "台積電", close: 2300, Trading_Volume: 40272350 }] });
+        }
+        if (url.includes("TaiwanStockInstitutionalInvestorsBuySell")) {
+          return jsonResponse({ data: [{ stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 }] });
+        }
+        if (url.includes("TaiwanStockMarginPurchaseShortSale")) {
+          return jsonResponse({ data: [{ date: "2026-05-27", name: "MarginPurchase", buy: 900, sell: 100, Return: 0, TodayBalance: 12000, YesBalance: 11200 }] });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(result.sources.finmindRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ stock_id: "2330", close: 2300 }),
+      expect.objectContaining({ stock_id: "2330", name: "Foreign_Investor" }),
+      expect.objectContaining({ stock_id: "2330", name: "MarginPurchase" })
+    ]));
+    expect(requested.some((entry) => entry.includes("Bearer"))).toBe(false);
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: "finmind",
+        status: "partial",
+        itemCount: 3,
+        message: "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+      })
+    ]));
+  });
+
   it("merges configured and dynamic FinMind symbols for price fetching", async () => {
     const requestedSymbols: string[] = [];
     const result = await fetchLiveSources({

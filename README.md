@@ -31,15 +31,15 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 Live ingestion currently connects:
 
 - FinMind `TaiwanStockPrice` through `https://api.finmindtrade.com/api/v4/data`, one configured symbol at a time.
-- FinMind `TaiwanStockInstitutionalInvestorsBuySell` and `TaiwanStockMarginPurchaseShortSale` for lightweight chip events when `FINMIND_TOKEN` is configured.
-- FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token; price rows still require `FINMIND_TOKEN`.
+- FinMind `TaiwanStockInstitutionalInvestorsBuySell` and `TaiwanStockMarginPurchaseShortSale` for lightweight chip events.
+- FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token.
 - PTT Stock board title page, with `over18=1` cookie and title-level extraction only.
 - Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
 - Optional Workers AI lightweight classification for short PTT/RSS event titles.
 
 Environment config:
 
-- `FINMIND_TOKEN` - 1Password reference locally, Cloudflare secret in production.
+- `FINMIND_TOKEN` - optional 1Password reference locally and Cloudflare secret in production. When absent, the Worker still attempts anonymous limited FinMind price/chip ingestion and marks readiness as degraded.
 - `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news because it has been stable from Cloudflare Workers; add extra feeds only after smoke-testing them from Worker.
@@ -53,7 +53,7 @@ The cron trigger runs the same live ingestion path. Source fetch failures are pa
 Entity extraction uses explicit stock codes plus universe-backed company aliases. Longer overlapping aliases win, so a title mentioning `聯發科` does not also create a false hit for `聯發`.
 Percentage figures are removed before numeric symbol extraction, so a title such as `年增:4725%` does not create a false `4725` candidate.
 
-FinMind price/chip ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. FinMind rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
+FinMind price/chip ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. If `FINMIND_TOKEN` is missing, it uses anonymous limited requests when FinMind allows them; adding the token improves quota stability. FinMind rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
 
 Classification stores only lightweight fields: sentiment `1-5`, up to three event tags, and one short reason. If Workers AI is unavailable, invalid, over limit, or the event is structured FinMind data, ingestion falls back to the deterministic classifier.
 
@@ -80,8 +80,8 @@ For local secret injection, use 1Password references via `op run --env-file=.env
 
 ## FinMind Secret Sync
 
-FinMind price/chip ingestion needs a non-empty `op://Dev/stock-analytics-v2/FINMIND_TOKEN`.
-The helper below reports only token presence/length, never the token value:
+FinMind price/chip ingestion can run in anonymous limited mode, but a non-empty `op://Dev/stock-analytics-v2/FINMIND_TOKEN` improves quota stability.
+The helper below reports only token presence/length and readiness, never the token value:
 
 ```bash
 pnpm check:finmind-secret
@@ -93,7 +93,7 @@ After the 1Password item is filled, sync it into Cloudflare and run a production
 pnpm sync:finmind-secret
 ```
 
-Expected final readiness is `finmind-signals=ready`. If the token is still empty, the script exits before touching Cloudflare secrets.
+Expected final readiness is `finmind-signals=ready` when token-backed ingestion works, or `finmind-signals=degraded` when anonymous limited price/chip rows are flowing. If the token is still empty, the sync script exits before touching Cloudflare secrets.
 
 ## Deployment
 
