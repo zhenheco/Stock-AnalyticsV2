@@ -51,6 +51,7 @@ describe("scoreCandidates", () => {
       name: "台積電",
       eventCount: 2,
       sourceCount: 2,
+      sourceEventCounts: { ptt: 1, rss: 1 },
       latestTitle: "台積電先進封裝需求升溫"
     });
     expect(candidates[0]?.score).toBeGreaterThan(candidates[1]?.score ?? 0);

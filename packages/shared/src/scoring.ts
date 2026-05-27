@@ -35,12 +35,20 @@ function toCandidate(symbol: string, events: EventRecord[], name: string): Candi
     score: round(Math.max(0, rawScore)),
     eventCount: events.length,
     sourceCount: sources.length,
+    sourceEventCounts: countBySource(events),
     latestTitle: latest?.title ?? "",
     latestAt: latest?.publishedAt ?? "",
     sources,
     tags,
     reason: latest?.reason ?? "事件訊號浮現"
   };
+}
+
+function countBySource(events: EventRecord[]): Partial<Record<SourceKind, number>> {
+  return events.reduce<Partial<Record<SourceKind, number>>>((counts, event) => ({
+    ...counts,
+    [event.source]: (counts[event.source] ?? 0) + 1
+  }), {});
 }
 
 function unique<T>(items: T[]): T[] {

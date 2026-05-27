@@ -41,6 +41,28 @@ describe("D1Repository", () => {
     expect(duplicate).toEqual(first);
     await expect(repo.listWatchlist()).resolves.toEqual([first]);
   });
+
+  it("persists candidate source event counts", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+
+    await repo.saveCandidates([
+      {
+        ...candidate("2330", "台積電"),
+        eventCount: 6,
+        sourceCount: 3,
+        sources: ["ptt", "rss", "finmind"],
+        sourceEventCounts: { ptt: 2, rss: 1, finmind: 3 }
+      }
+    ]);
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({
+        symbol: "2330",
+        sourceEventCounts: { ptt: 2, rss: 1, finmind: 3 }
+      })
+    ]);
+  });
 });
 
 function candidate(symbol: string, name: string): Candidate {
@@ -114,6 +136,7 @@ class FakeD1PreparedStatement {
         score,
         eventCount,
         sourceCount,
+        sourceCountsJson,
         latestTitle,
         latestAt,
         sourcesJson,
@@ -126,6 +149,7 @@ class FakeD1PreparedStatement {
         score,
         event_count: eventCount,
         source_count: sourceCount,
+        source_counts_json: sourceCountsJson,
         latest_title: latestTitle,
         latest_at: latestAt,
         sources_json: sourcesJson,

@@ -28,14 +28,15 @@ export class D1Repository implements Repository {
 
     await batchStatements(this.db, candidates.map((candidate) => this.db.prepare(`
       INSERT OR REPLACE INTO candidates
-        (symbol, name, score, event_count, source_count, latest_title, latest_at, sources_json, tags_json, reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (symbol, name, score, event_count, source_count, source_counts_json, latest_title, latest_at, sources_json, tags_json, reason)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       candidate.symbol,
       candidate.name,
       candidate.score,
       candidate.eventCount,
       candidate.sourceCount,
+      JSON.stringify(candidate.sourceEventCounts ?? {}),
       candidate.latestTitle,
       candidate.latestAt,
       JSON.stringify(candidate.sources),
@@ -182,6 +183,7 @@ interface CandidateRow {
   score: number;
   event_count: number;
   source_count: number;
+  source_counts_json?: string;
   latest_title: string;
   latest_at: string;
   sources_json: string;
@@ -234,12 +236,34 @@ function rowToCandidate(row: CandidateRow): Candidate {
     score: row.score,
     eventCount: row.event_count,
     sourceCount: row.source_count,
+    sourceEventCounts: parseSourceEventCounts(row.source_counts_json, row.sources_json, row.event_count),
     latestTitle: row.latest_title,
     latestAt: row.latest_at,
     sources: JSON.parse(row.sources_json) as SourceKind[],
     tags: JSON.parse(row.tags_json) as string[],
     reason: row.reason
   };
+}
+
+function parseSourceEventCounts(sourceCountsJson: string | undefined, sourcesJson: string, eventCount: number): Partial<Record<SourceKind, number>> {
+  if (sourceCountsJson) {
+    try {
+      return JSON.parse(sourceCountsJson) as Partial<Record<SourceKind, number>>;
+    } catch {
+      return {};
+    }
+  }
+
+  try {
+    const sources = JSON.parse(sourcesJson) as SourceKind[];
+    const firstSource = sources[0];
+    if (sources.length === 1 && firstSource) {
+      return { [firstSource]: eventCount };
+    }
+    return Object.fromEntries(sources.map((source) => [source, 1])) as Partial<Record<SourceKind, number>>;
+  } catch {
+    return {};
+  }
 }
 
 function rowToEvent(row: EventRow): EventRecord {

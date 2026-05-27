@@ -337,6 +337,37 @@ h2 {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
+.source-mix {
+  display: grid;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.source-bar {
+  background: #111414;
+  border: 1px solid var(--line);
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+}
+
+.source-segment {
+  display: block;
+  min-width: 4px;
+}
+
+.source-ptt {
+  background: #66d18f;
+}
+
+.source-rss {
+  background: #d7a642;
+}
+
+.source-finmind {
+  background: #7aa7ff;
+}
+
 .source-pills,
 .tag-list {
   display: flex;

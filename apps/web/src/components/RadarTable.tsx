@@ -137,8 +137,21 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                     </div>
                   </td>
                   <td>
-                    <div className="source-pills">
-                      {candidate.sources.map((source) => <span key={source}>{source}</span>)}
+                    <div className="source-mix" aria-label={`${candidate.symbol} source mix`}>
+                      <div className="source-bar" aria-hidden="true">
+                        {sourceMixSegments(candidate).map((segment) => (
+                          <span
+                            key={segment.source}
+                            className={`source-segment source-${segment.source}`}
+                            style={{ width: `${segment.percent}%` }}
+                          />
+                        ))}
+                      </div>
+                      <div className="source-pills">
+                        {sourceMixSegments(candidate).map((segment) => (
+                          <span key={segment.source}>{`${segment.label} ${segment.count}`}</span>
+                        ))}
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -165,6 +178,32 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
   );
 }
 
+export interface SourceMixSegment {
+  source: SourceKind;
+  label: string;
+  count: number;
+  percent: number;
+}
+
+const SOURCE_LABELS: Record<SourceKind, string> = {
+  ptt: "PTT",
+  rss: "RSS",
+  finmind: "FinMind"
+};
+
+export function sourceMixSegments(candidate: Candidate): SourceMixSegment[] {
+  const counts = candidate.sourceEventCounts ?? fallbackSourceEventCounts(candidate);
+  const total = Math.max(1, sum(candidate.sources.map((source) => counts[source] ?? 0)));
+  return candidate.sources
+    .map((source) => ({
+      source,
+      label: SOURCE_LABELS[source],
+      count: counts[source] ?? 0,
+      percent: Math.round(((counts[source] ?? 0) / total) * 100)
+    }))
+    .filter((segment) => segment.count > 0);
+}
+
 export function filterAndSortCandidates(candidates: Candidate[], filters: RadarFilters, watchlistSymbols: ReadonlySet<string> = new Set()): Candidate[] {
   return candidates
     .filter((candidate) => candidate.score >= filters.minScore)
@@ -177,6 +216,18 @@ export function filterAndSortCandidates(candidates: Candidate[], filters: RadarF
       }
       return right.score - left.score || right.latestAt.localeCompare(left.latestAt);
     });
+}
+
+function fallbackSourceEventCounts(candidate: Candidate): Partial<Record<SourceKind, number>> {
+  const firstSource = candidate.sources[0];
+  if (candidate.sources.length === 1 && firstSource) {
+    return { [firstSource]: candidate.eventCount };
+  }
+  return Object.fromEntries(candidate.sources.map((source) => [source, 1])) as Partial<Record<SourceKind, number>>;
+}
+
+function sum(items: number[]): number {
+  return items.reduce((total, value) => total + value, 0);
 }
 
 function formatTime(value: string): string {

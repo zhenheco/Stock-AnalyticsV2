@@ -29,6 +29,7 @@ export interface Candidate {
   score: number;
   eventCount: number;
   sourceCount: number;
+  sourceEventCounts?: Partial<Record<SourceKind, number>>;
   latestTitle: string;
   latestAt: string;
   sources: SourceKind[];

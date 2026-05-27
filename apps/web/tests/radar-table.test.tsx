@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { filterAndSortCandidates, RadarTable, type RadarFilters } from "../src/components/RadarTable";
+import { filterAndSortCandidates, RadarTable, sourceMixSegments, type RadarFilters } from "../src/components/RadarTable";
 import type { Candidate } from "@stock-analytics/shared";
 
 describe("RadarTable", () => {
@@ -46,6 +46,34 @@ describe("RadarTable", () => {
 
     expect(html).toContain("3 來源");
     expect(html).toContain("12 事件");
+  });
+
+  it("renders source contribution counts for each candidate", () => {
+    const html = renderToString(<RadarTable candidates={[
+      candidate({
+        symbol: "2330",
+        eventCount: 6,
+        sourceCount: 3,
+        sources: ["ptt", "rss", "finmind"],
+        sourceEventCounts: { ptt: 2, rss: 1, finmind: 3 }
+      })
+    ]} />);
+
+    expect(html).toContain("PTT 2");
+    expect(html).toContain("RSS 1");
+    expect(html).toContain("FinMind 3");
+  });
+
+  it("builds source mix segments from candidate counts", () => {
+    expect(sourceMixSegments(candidate({
+      eventCount: 6,
+      sources: ["ptt", "rss", "finmind"],
+      sourceEventCounts: { ptt: 2, rss: 1, finmind: 3 }
+    }))).toEqual([
+      { source: "ptt", label: "PTT", count: 2, percent: 33 },
+      { source: "rss", label: "RSS", count: 1, percent: 17 },
+      { source: "finmind", label: "FinMind", count: 3, percent: 50 }
+    ]);
   });
 
   it("renders event category tags as part of candidate evidence", () => {
