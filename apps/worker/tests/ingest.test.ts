@@ -87,6 +87,37 @@ describe("runIngestion", () => {
     ]);
   });
 
+  it("uses universe names to enrich anonymous FinMind rows that omit stock_name", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        finmindRows: [
+          { stock_id: "2330", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 }
+        ]
+      }
+    });
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({
+        title: "2330 台積電 外資 買超 4000 股"
+      })
+    ]);
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2330", name: "台積電" })
+    ]);
+  });
+
   it("uses an optional lightweight classifier for stored event tags and reasons", async () => {
     const repo = new MemoryRepository();
 

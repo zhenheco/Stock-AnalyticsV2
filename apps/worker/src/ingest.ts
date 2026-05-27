@@ -35,12 +35,17 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
     : [];
   const aliases = buildAliasMap([...existingUniverse, ...incomingUniverse]);
   const validSymbols = new Set([...existingUniverse, ...incomingUniverse].map((stock) => stock.symbol));
+  const universeNames = {
+    ...Object.fromEntries(existingUniverse.map((stock) => [stock.symbol, stock.name])),
+    ...Object.fromEntries(incomingUniverse.map((stock) => [stock.symbol, stock.name]))
+  };
+  const finmindRows = enrichFinMindRowNames(input.sources.finmindRows ?? [], universeNames);
   const sourceEvents = [
     ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases, validSymbols) : []),
     ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases, validSymbols, false) : []),
-    ...(input.sources.finmindRows ? normalizeFinMindRows(input.sources.finmindRows, input.now) : [])
+    ...normalizeFinMindRows(finmindRows, input.now)
   ];
-  const relevantSymbols = collectRelevantSymbols(sourceEvents, input.sources.finmindRows ?? []);
+  const relevantSymbols = collectRelevantSymbols(sourceEvents, finmindRows);
   const relevantUniverse = incomingUniverse.filter((stock) => relevantSymbols.has(stock.symbol));
   const universeToPersist = incomingUniverse.length > 0 && await input.repo.countUniverse() === 0 ? incomingUniverse : relevantUniverse;
   if (universeToPersist.length > 0) {
@@ -49,7 +54,7 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
 
   const names = {
     ...(await listUniverseNames(input.repo)),
-    ...Object.fromEntries((input.sources.finmindRows ?? []).map((row) => [row.stock_id, row.stock_name ?? row.stock_id]))
+    ...Object.fromEntries(finmindRows.map((row) => [row.stock_id, row.stock_name ?? row.stock_id]))
   };
 
   await persistSourceEvents(input.repo, sourceEvents, names, {
@@ -211,4 +216,11 @@ function buildAliasMap(stocks: Array<{ symbol: string; name: string }>): Record<
   return Object.fromEntries(stocks
     .filter((stock) => stock.name.trim().length >= 2)
     .map((stock) => [stock.name.trim(), stock.symbol]));
+}
+
+function enrichFinMindRowNames(rows: FinMindRow[], universeNames: Record<string, string>): FinMindRow[] {
+  return rows.map((row) => ({
+    ...row,
+    stock_name: row.stock_name ?? universeNames[row.stock_id] ?? row.stock_id
+  }));
 }
