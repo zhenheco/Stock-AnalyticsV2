@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeSecretFields } from "../../../scripts/secrets-doctor.mjs";
+import { secretReadinessGate, summarizeSecretFields } from "../../../scripts/secrets-doctor.mjs";
 
 describe("secrets-doctor script helpers", () => {
   it("summarizes required secret presence without exposing values", () => {
@@ -23,5 +23,28 @@ describe("secrets-doctor script helpers", () => {
         { label: "ADMIN_TOKEN", value: "a".repeat(64) }
       ]
     })).toContain("SECRET FINMIND_TOKEN field-missing length=0");
+  });
+
+  it("fails strict secret readiness when any required secret is missing", () => {
+    expect(secretReadinessGate({
+      fields: [
+        { label: "ADMIN_TOKEN", value: "a".repeat(64) },
+        { label: "INGEST_WEBHOOK_TOKEN", value: "b".repeat(64) },
+        { label: "FINMIND_TOKEN", value: "" }
+      ]
+    })).toEqual({
+      ok: false,
+      reasons: ["FINMIND_TOKEN missing"]
+    });
+  });
+
+  it("passes strict secret readiness when all required secrets are present", () => {
+    expect(secretReadinessGate({
+      fields: [
+        { label: "ADMIN_TOKEN", value: "a".repeat(64) },
+        { label: "INGEST_WEBHOOK_TOKEN", value: "b".repeat(64) },
+        { label: "FINMIND_TOKEN", value: "finmind-token" }
+      ]
+    })).toEqual({ ok: true, reasons: [] });
   });
 });

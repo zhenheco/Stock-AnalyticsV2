@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const STEPS = [
-  { name: "check:secrets", args: ["check:secrets"] },
+  { name: "check:secrets:ready", args: ["check:secrets:ready"] },
   { name: "sync:finmind-secret", args: ["sync:finmind-secret"] },
   { name: "check:production:ready", args: ["check:production:ready"] }
 ];

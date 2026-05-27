@@ -26,13 +26,36 @@ export function summarizeSecretFields(item) {
   return lines;
 }
 
+export function secretReadinessGate(item) {
+  const fields = item.fields ?? [];
+  const reasons = REQUIRED_FIELDS.flatMap((label) => {
+    const field = fields.find((candidate) => candidate.label === label);
+    const value = String(field?.value ?? "").trim();
+    return value ? [] : [`${label} missing`];
+  });
+
+  return {
+    ok: reasons.length === 0,
+    reasons
+  };
+}
+
 async function main() {
+  const requireReady = process.argv.includes("--require-ready");
   const itemName = process.env.STOCK_ANALYTICS_OP_ITEM ?? DEFAULT_ITEM;
   const vault = process.env.STOCK_ANALYTICS_OP_VAULT ?? DEFAULT_VAULT;
   const item = await readItem(itemName, vault);
 
   for (const line of summarizeSecretFields(item)) {
     console.log(line);
+  }
+
+  if (requireReady) {
+    const gate = secretReadinessGate(item);
+    if (!gate.ok) {
+      throw new Error(`SECRETS_NOT_READY ${gate.reasons.join("; ")}`);
+    }
+    console.log("SECRETS_READY");
   }
 }
 
