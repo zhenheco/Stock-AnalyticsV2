@@ -29,6 +29,38 @@ describe("StockDetail", () => {
     expect(html).toContain("半導體業");
   });
 
+  it("renders an add-to-watchlist action when the stock is not tracked", () => {
+    const html = renderToString(<StockDetail
+      symbol="2330"
+      stock={{
+        symbol: "2330",
+        name: "台積電",
+        market: "上市",
+        industry: "半導體業",
+        securityType: "stock",
+        updatedAt: "2026-05-27T05:00:00.000Z"
+      }}
+      events={[]}
+      isWatchlisted={false}
+      onAddToWatchlist={() => undefined}
+    />);
+
+    expect(html).toContain("加入追蹤");
+    expect(html).not.toContain("移除追蹤");
+  });
+
+  it("renders a remove action when the stock is already tracked", () => {
+    const html = renderToString(<StockDetail
+      symbol="2330"
+      events={[]}
+      isWatchlisted
+      onRemoveFromWatchlist={() => undefined}
+    />);
+
+    expect(html).toContain("已追蹤");
+    expect(html).toContain("移除追蹤");
+  });
+
   it("summarizes event count, source count, sentiment, and top tags", () => {
     expect(summarizeResearch([
       event({ id: "rss:1", source: "rss", tags: ["AI", "產業題材"], sentiment: 4 }),

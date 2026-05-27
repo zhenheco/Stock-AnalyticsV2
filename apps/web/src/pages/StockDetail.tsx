@@ -4,9 +4,12 @@ interface StockDetailProps {
   symbol: string;
   stock?: UniverseStock | null;
   events: EventRecord[];
+  isWatchlisted?: boolean;
+  onAddToWatchlist?: () => void;
+  onRemoveFromWatchlist?: () => void;
 }
 
-export function StockDetail({ symbol, stock, events }: StockDetailProps) {
+export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAddToWatchlist, onRemoveFromWatchlist }: StockDetailProps) {
   const tradingViewSymbol = `TWSE:${symbol}`;
   const widgetUrl = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tradingViewSymbol)}&interval=D&theme=dark`;
   const summary = summarizeResearch(events);
@@ -19,7 +22,17 @@ export function StockDetail({ symbol, stock, events }: StockDetailProps) {
           <h1>{stock?.name ? `${symbol} ${stock.name}` : symbol}</h1>
           {stock ? <p className="muted">{[stock.market, stock.industry, stock.securityType].filter(Boolean).join(" / ")}</p> : null}
         </div>
-        <a className="ghost-button" href="/">回雷達</a>
+        <div className="detail-actions">
+          <a className="ghost-button" href="/">回雷達</a>
+          {isWatchlisted ? (
+            <>
+              <span>已追蹤</span>
+              {onRemoveFromWatchlist ? <button className="danger" type="button" onClick={onRemoveFromWatchlist}>移除追蹤</button> : null}
+            </>
+          ) : onAddToWatchlist ? (
+            <button type="button" onClick={onAddToWatchlist}>加入追蹤</button>
+          ) : null}
+        </div>
       </header>
 
       <section className="chart-band">

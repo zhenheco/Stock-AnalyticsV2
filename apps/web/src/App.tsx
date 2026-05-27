@@ -145,20 +145,57 @@ async function loadDashboardData(): Promise<DashboardData> {
 }
 
 function StockRoute({ symbol }: { symbol: string }) {
-  const [state, setState] = useState<LoadState<{ stock: UniverseStock | null; events: EventRecord[] }>>({ status: "loading" });
+  const [state, setState] = useState<LoadState<{ stock: UniverseStock | null; events: EventRecord[]; watchlist: WatchlistEntry[] }>>({ status: "loading" });
 
   useEffect(() => {
-    fetchStockResearch(symbol)
-      .then((data) => setState({ status: "ready", data: { stock: data.stock, events: data.events } }))
+    Promise.all([fetchStockResearch(symbol), fetchWatchlist()])
+      .then(([research, watchlistData]) => setState({ status: "ready", data: { stock: research.stock, events: research.events, watchlist: watchlistData.watchlist } }))
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, [symbol]);
 
   const events = state.status === "ready" ? state.data.events : [];
   const stock = state.status === "ready" ? state.data.stock : null;
+  const isWatchlisted = state.status === "ready" ? state.data.watchlist.some((entry) => entry.symbol === symbol) : false;
+
+  async function handleAddToWatchlist() {
+    const adminToken = readStoredAdminToken() || window.prompt("Admin token")?.trim() || "";
+    if (!adminToken) {
+      return;
+    }
+    const entry = await addWatchlistEntry({ symbol, name: stock?.name ?? symbol, adminToken });
+    setState((current) => {
+      if (current.status !== "ready") {
+        return current;
+      }
+      return { status: "ready", data: { ...current.data, watchlist: mergeWatchlistEntry(current.data.watchlist, entry) } };
+    });
+  }
+
+  async function handleRemoveFromWatchlist() {
+    const adminToken = readStoredAdminToken() || window.prompt("Admin token")?.trim() || "";
+    if (!adminToken) {
+      return;
+    }
+    await removeWatchlistEntry({ symbol, adminToken });
+    setState((current) => {
+      if (current.status !== "ready") {
+        return current;
+      }
+      return { status: "ready", data: { ...current.data, watchlist: current.data.watchlist.filter((entry) => entry.symbol !== symbol) } };
+    });
+  }
+
   return (
     <>
       {state.status === "error" ? <ErrorPanel message={state.message} /> : null}
-      <StockDetail symbol={symbol} stock={stock} events={events} />
+      <StockDetail
+        symbol={symbol}
+        stock={stock}
+        events={events}
+        isWatchlisted={isWatchlisted}
+        onAddToWatchlist={handleAddToWatchlist}
+        onRemoveFromWatchlist={handleRemoveFromWatchlist}
+      />
     </>
   );
 }
