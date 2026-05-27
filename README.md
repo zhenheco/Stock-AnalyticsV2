@@ -115,11 +115,14 @@ Cloudflare resources:
 Production smoke endpoints:
 
 ```bash
+pnpm check:production
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/candidates
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/data-readiness
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
 curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=0"
 ```
+
+`pnpm check:production` checks the deployed Pages bundle, Worker readiness, top candidate source contribution counts, and FinMind token presence without printing raw secrets.
 
 ## Deferred
 
