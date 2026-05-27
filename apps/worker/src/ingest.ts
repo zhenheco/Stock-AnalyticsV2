@@ -58,7 +58,9 @@ export async function persistSourceEvents(repo: Repository, sourceEvents: Source
 }
 
 export async function recomputeCandidates(repo: Repository, names: Record<string, string> = {}): Promise<void> {
-  const candidates = scoreCandidates(await repo.listEvents(), {
+  const events = (await repo.listEvents()).map(reclassifyEventRecord);
+  await repo.saveEvents(events);
+  const candidates = scoreCandidates(events, {
     ...(await listUniverseNames(repo)),
     ...names
   });
@@ -83,9 +85,23 @@ export function expandSymbols(event: SourceEvent): EventRecord[] {
   });
 }
 
+function reclassifyEventRecord(event: EventRecord): EventRecord {
+  const classification = classifyEvent(event.title, event.source);
+  return {
+    ...event,
+    tags: classification.tags,
+    sentiment: classification.sentiment,
+    reason: classification.reason
+  };
+}
+
 function classifyEvent(title: string, source: SourceEvent["source"]): { sentiment: number; tags: string[]; reason: string } {
+  const isAnnouncement = title.includes("【公告】") || title.match(/股東會|股東常會|董事會|解除董事競業|自結|重要決議|財務報告/);
+  const isIndustryCatalyst = title.match(/商機|機器人|供應鏈|訂單|需求|報價|漲停|大漲|攻/);
   const tags = [
+    isAnnouncement ? "公告" : "",
     title.includes("AI") ? "AI" : "",
+    isIndustryCatalyst ? "產業題材" : "",
     title.includes("封裝") ? "先進封裝" : "",
     title.includes("營收") ? "營收" : "",
     source === "ptt" ? "討論熱度" : "",
@@ -93,9 +109,9 @@ function classifyEvent(title: string, source: SourceEvent["source"]): { sentimen
   ].filter(Boolean);
 
   return {
-    sentiment: title.match(/升溫|增加|爆量|成長|強/) ? 4 : 3,
+    sentiment: isAnnouncement ? 2 : title.match(/升溫|增加|爆量|成長|強|商機|大漲|漲停/) ? 4 : 3,
     tags: tags.slice(0, 3),
-    reason: `${source} 事件訊號命中`
+    reason: isAnnouncement ? "公告事件，可信但催化程度較低" : `${source} 事件訊號命中`
   };
 }
 

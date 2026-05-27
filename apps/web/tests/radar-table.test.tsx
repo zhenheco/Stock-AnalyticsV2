@@ -33,4 +33,26 @@ describe("RadarTable", () => {
     expect(html).toContain("ptt");
     expect(html).toContain("/stock/2330");
   });
+
+  it("renders event category tags as part of candidate evidence", () => {
+    const candidates: Candidate[] = [
+      {
+        symbol: "2356",
+        name: "英業達",
+        score: 2.6,
+        eventCount: 1,
+        sourceCount: 1,
+        latestTitle: "【公告】英業達股東會重要決議事項",
+        latestAt: "2026-05-27T02:00:00.000Z",
+        sources: ["rss"],
+        tags: ["公告"],
+        reason: "公告事件，可信但催化程度較低"
+      }
+    ];
+
+    const html = renderToString(<RadarTable candidates={candidates} />);
+
+    expect(html).toContain("公告");
+    expect(html).toContain("催化程度較低");
+  });
 });

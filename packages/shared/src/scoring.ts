@@ -25,12 +25,14 @@ function toCandidate(symbol: string, events: EventRecord[], name: string): Candi
   const engagementScore = Math.log10(1 + Math.max(0, sum(events.map((event) => event.engagement))));
   const sentimentScore = average(events.map((event) => event.sentiment)) - 3;
   const sourceScore = sources.reduce((total, source) => total + SOURCE_WEIGHTS[source], 0);
-  const rawScore = events.length * 1.5 + sourceScore * 1.8 + engagementScore + sentimentScore;
+  const eventScore = sum(events.map(eventWeight)) * 1.5;
+  const catalystScore = sum(events.map(catalystWeight));
+  const rawScore = eventScore + sourceScore * 1.8 + engagementScore + sentimentScore + catalystScore;
 
   return {
     symbol,
     name,
-    score: round(rawScore),
+    score: round(Math.max(0, rawScore)),
     eventCount: events.length,
     sourceCount: sources.length,
     latestTitle: latest?.title ?? "",
@@ -55,4 +57,32 @@ function average(items: number[]): number {
 
 function round(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function eventWeight(event: EventRecord): number {
+  if (event.tags.includes("公告")) {
+    return 0.35;
+  }
+  if (event.tags.some((tag) => ["AI", "產業題材", "營收", "先進封裝", "價格量能"].includes(tag))) {
+    return 1.2;
+  }
+  return 1;
+}
+
+function catalystWeight(event: EventRecord): number {
+  return event.tags.reduce((total, tag) => {
+    if (tag === "公告") {
+      return total - 1.1;
+    }
+    if (tag === "AI") {
+      return total + 0.8;
+    }
+    if (tag === "產業題材") {
+      return total + 0.7;
+    }
+    if (tag === "營收" || tag === "先進封裝" || tag === "價格量能") {
+      return total + 0.5;
+    }
+    return total;
+  }, 0);
 }

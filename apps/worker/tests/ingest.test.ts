@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runIngestion } from "../src/ingest";
+import { recomputeCandidates, runIngestion } from "../src/ingest";
 import { MemoryRepository } from "../src/repository/memory";
 
 describe("runIngestion", () => {
@@ -211,5 +211,99 @@ describe("runIngestion", () => {
     });
 
     await expect(repo.listCandidates()).resolves.toEqual([]);
+  });
+
+  it("classifies formal announcements separately from research catalysts", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([
+      {
+        symbol: "2356",
+        name: "英業達",
+        market: "上市",
+        industry: "電腦及週邊設備業",
+        securityType: "stock",
+        updatedAt: "2026-05-26T03:00:00.000Z"
+      },
+      {
+        symbol: "2328",
+        name: "廣宇",
+        market: "上市",
+        industry: "電子零組件業",
+        securityType: "stock",
+        updatedAt: "2026-05-26T03:00:00.000Z"
+      }
+    ]);
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        rssXml: `
+          <rss><channel>
+            <item>
+              <title>【公告】英業達股東會重要決議事項</title>
+              <link>https://news.test/2356-a</link>
+              <pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate>
+            </item>
+            <item>
+              <title>廣宇衝刺AI與機器人商機</title>
+              <link>https://news.test/2328-c</link>
+              <pubDate>Wed, 27 May 2026 03:00:00 GMT</pubDate>
+            </item>
+          </channel></rss>
+        `
+      }
+    });
+
+    await expect(repo.listEventsForSymbol("2356")).resolves.toEqual([
+      expect.objectContaining({
+        tags: expect.arrayContaining(["公告"]),
+        sentiment: 2
+      })
+    ]);
+    await expect(repo.listEventsForSymbol("2328")).resolves.toEqual([
+      expect.objectContaining({
+        tags: expect.arrayContaining(["AI", "產業題材"]),
+        sentiment: 4
+      })
+    ]);
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2328" }),
+      expect.objectContaining({ symbol: "2356" })
+    ]);
+  });
+
+  it("reclassifies stored events when recomputing candidates after classifier changes", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2356",
+      name: "英業達",
+      market: "上市",
+      industry: "電腦及週邊設備業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+    await repo.saveEvents([{
+      id: "rss:2356:https://news.test/old-announcement",
+      source: "rss",
+      symbol: "2356",
+      title: "【公告】英業達股東會重要決議事項",
+      url: "https://news.test/old-announcement",
+      publishedAt: "2026-05-27T02:00:00.000Z",
+      engagement: 0,
+      tags: [],
+      sentiment: 3,
+      reason: "rss 事件訊號命中"
+    }]);
+
+    await recomputeCandidates(repo);
+
+    await expect(repo.listEventsForSymbol("2356")).resolves.toEqual([
+      expect.objectContaining({
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件，可信但催化程度較低"
+      })
+    ]);
   });
 });

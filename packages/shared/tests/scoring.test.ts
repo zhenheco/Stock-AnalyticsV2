@@ -55,6 +55,98 @@ describe("scoreCandidates", () => {
     });
     expect(candidates[0]?.score).toBeGreaterThan(candidates[1]?.score ?? 0);
   });
+
+  it("ranks research catalysts above repetitive formal announcements", () => {
+    const events: EventRecord[] = [
+      {
+        id: "rss-announce-1",
+        source: "rss",
+        symbol: "2356",
+        title: "【公告】英業達股東會重要決議事項",
+        url: "https://news.test/a1",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件"
+      },
+      {
+        id: "rss-announce-2",
+        source: "rss",
+        symbol: "2356",
+        title: "【公告】英業達解除董事競業限制",
+        url: "https://news.test/a2",
+        publishedAt: "2026-05-27T05:10:00.000Z",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件"
+      },
+      {
+        id: "rss-announce-3",
+        source: "rss",
+        symbol: "2356",
+        title: "【公告】英業達股東會決議解除董事競業行為之限制",
+        url: "https://news.test/a3",
+        publishedAt: "2026-05-27T05:20:00.000Z",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件"
+      },
+      {
+        id: "rss-announce-4",
+        source: "rss",
+        symbol: "2356",
+        title: "【公告】英業達股東常會重要決議事項",
+        url: "https://news.test/a4",
+        publishedAt: "2026-05-27T05:30:00.000Z",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件"
+      },
+      {
+        id: "rss-catalyst-1",
+        source: "rss",
+        symbol: "2328",
+        title: "廣宇衝刺AI與機器人商機",
+        url: "https://news.test/c1",
+        publishedAt: "2026-05-27T06:00:00.000Z",
+        engagement: 0,
+        tags: ["AI", "產業題材"],
+        sentiment: 4,
+        reason: "AI 產業事件"
+      }
+    ];
+
+    const candidates = scoreCandidates(events, { "2356": "英業達", "2328": "廣宇" });
+
+    expect(candidates[0]).toMatchObject({
+      symbol: "2328",
+      tags: ["AI", "產業題材"]
+    });
+    expect(candidates[0]?.score).toBeGreaterThan(candidates[1]?.score ?? 0);
+  });
+
+  it("keeps heavily discounted announcement candidates at a non-negative score", () => {
+    const candidates = scoreCandidates([
+      {
+        id: "rss-announcement",
+        source: "rss",
+        symbol: "2356",
+        title: "【公告】英業達股東會重要決議事項",
+        url: "https://news.test/a",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 1,
+        reason: "公告事件"
+      }
+    ], { "2356": "英業達" });
+
+    expect(candidates[0]?.score).toBe(0);
+  });
 });
 
 describe("validateLlmClassification", () => {

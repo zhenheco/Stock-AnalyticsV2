@@ -44,6 +44,8 @@ The cron trigger runs the same live ingestion path. Source fetch failures are pa
 
 Entity extraction uses explicit stock codes plus universe-backed company aliases. Longer overlapping aliases win, so a title mentioning `聯發科` does not also create a false hit for `聯發`.
 
+Scoring favors research catalysts such as AI, industry demand, revenue, and price/volume events. Formal announcements are still retained as evidence but are discounted so they do not crowd out stronger research signals.
+
 ## Dashboard
 
 - Radar page shows candidate stocks and source health.
