@@ -273,6 +273,28 @@ describe("runIngestion", () => {
     ]);
   });
 
+  it("classifies FinMind chip rows as chip signals", async () => {
+    const repo = new MemoryRepository();
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        finmindRows: [
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 } as any
+        ]
+      }
+    });
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({
+        title: "2330 台積電 外資 買超 4000 股",
+        tags: expect.arrayContaining(["籌碼"]),
+        reason: "FinMind 籌碼訊號命中"
+      })
+    ]);
+  });
+
   it("reclassifies stored events when recomputing candidates after classifier changes", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse([{

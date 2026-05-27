@@ -72,6 +72,13 @@ export interface LlmClassification {
 export interface FinMindRow {
   stock_id: string;
   stock_name?: string;
+  date?: string;
+  name?: string;
+  buy?: number;
+  sell?: number;
+  Return?: number;
+  TodayBalance?: number;
+  YesBalance?: number;
   close?: number;
   Trading_Volume?: number;
 }

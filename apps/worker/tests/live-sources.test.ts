@@ -23,6 +23,9 @@ describe("fetchLiveSources", () => {
             ]
           });
         }
+        if (url.includes("TaiwanStockInstitutionalInvestorsBuySell") || url.includes("TaiwanStockMarginPurchaseShortSale")) {
+          return jsonResponse({ data: [] });
+        }
         if (url.includes("finmindtrade")) {
           const symbol = new URL(url).searchParams.get("data_id");
           return jsonResponse({
@@ -243,6 +246,59 @@ describe("fetchLiveSources", () => {
     expect(result.sources.finmindRows).toHaveLength(2);
     expect(result.runs).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "finmind", status: "ok", itemCount: 2 })
+    ]));
+  });
+
+  it("fetches FinMind chip datasets for configured and dynamic symbols", async () => {
+    const requestedDatasets: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        FINMIND_TOKEN: "token",
+        FINMIND_SYMBOLS: "2330",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      finmindSymbols: ["2317"],
+      fetcher: async (input) => {
+        const url = String(input);
+        if (!url.includes("finmindtrade")) {
+          return textResponse("");
+        }
+        const parsed = new URL(url);
+        const dataset = parsed.searchParams.get("dataset") ?? "";
+        const symbol = parsed.searchParams.get("data_id") ?? "";
+        requestedDatasets.push(`${dataset}:${symbol}`);
+        if (dataset === "TaiwanStockInfo") {
+          return jsonResponse({ data: [] });
+        }
+        if (dataset === "TaiwanStockPrice") {
+          return jsonResponse({ data: [{ stock_id: symbol, stock_name: symbol, close: 100, Trading_Volume: 10 }] });
+        }
+        if (dataset === "TaiwanStockInstitutionalInvestorsBuySell") {
+          return jsonResponse({ data: [{ stock_id: symbol, stock_name: symbol, date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 }] });
+        }
+        if (dataset === "TaiwanStockMarginPurchaseShortSale") {
+          return jsonResponse({ data: [{ date: "2026-05-27", name: "MarginPurchase", buy: 900, sell: 100, Return: 0, TodayBalance: 12000, YesBalance: 11200 }] });
+        }
+        return jsonResponse({ data: [] });
+      }
+    });
+
+    expect(requestedDatasets).toEqual(expect.arrayContaining([
+      "TaiwanStockInstitutionalInvestorsBuySell:2330",
+      "TaiwanStockInstitutionalInvestorsBuySell:2317",
+      "TaiwanStockMarginPurchaseShortSale:2330",
+      "TaiwanStockMarginPurchaseShortSale:2317"
+    ]));
+    expect(result.sources.finmindRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ stock_id: "2330", name: "Foreign_Investor" }),
+      expect.objectContaining({ stock_id: "2330", name: "MarginPurchase" }),
+      expect.objectContaining({ stock_id: "2317", name: "Foreign_Investor" }),
+      expect.objectContaining({ stock_id: "2317", name: "MarginPurchase" })
+    ]));
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 6 })
     ]));
   });
 });

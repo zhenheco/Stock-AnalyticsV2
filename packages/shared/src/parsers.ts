@@ -75,12 +75,44 @@ export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEve
     if (!/^\d{4,6}[A-Z]?$/.test(symbol)) {
       return [];
     }
-    const title = `${symbol} ${row.stock_name ?? symbol} close ${row.close ?? "N/A"} volume ${row.Trading_Volume ?? 0}`;
+    const name = row.stock_name ?? symbol;
+
+    if (isMarginRow(row)) {
+      const delta = marginDelta(row);
+      const label = translateMarginName(row.name);
+      const direction = delta >= 0 ? "增加" : "減少";
+      const balance = finiteNumber(row.TodayBalance) ? ` 餘額 ${row.TodayBalance}` : "";
+
+      return [{
+        source: "finmind" as const,
+        title: `${symbol} ${name} ${label}${direction} ${Math.abs(delta)} 張${balance}`,
+        url: finMindUrl("TaiwanStockMarginPurchaseShortSale", symbol, row.name),
+        publishedAt: now,
+        engagement: Math.abs(delta),
+        symbols: [symbol]
+      }];
+    }
+
+    if (isInstitutionalRow(row)) {
+      const net = Number(row.buy ?? 0) - Number(row.sell ?? 0);
+      const direction = net >= 0 ? "買超" : "賣超";
+
+      return [{
+        source: "finmind" as const,
+        title: `${symbol} ${name} ${translateInstitutionName(row.name)} ${direction} ${Math.abs(net)} 股`,
+        url: finMindUrl("TaiwanStockInstitutionalInvestorsBuySell", symbol, row.name),
+        publishedAt: now,
+        engagement: Math.abs(net),
+        symbols: [symbol]
+      }];
+    }
+
+    const title = `${symbol} ${name} close ${row.close ?? "N/A"} volume ${row.Trading_Volume ?? 0}`;
 
     return [{
       source: "finmind" as const,
       title,
-      url: `https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=${symbol}`,
+      url: finMindUrl("TaiwanStockPrice", symbol),
       publishedAt: now,
       engagement: Number(row.Trading_Volume ?? 0),
       symbols: [symbol]
@@ -159,6 +191,55 @@ function decodeCdata(value: string): string {
 
 function normalizeSymbol(value: string | undefined): string {
   return (value ?? "").trim().toUpperCase();
+}
+
+function isInstitutionalRow(row: FinMindRow): boolean {
+  return Boolean(row.name && finiteNumber(row.buy) && finiteNumber(row.sell));
+}
+
+function isMarginRow(row: FinMindRow): boolean {
+  return ["MarginPurchase", "ShortSale", "MarginPurchaseMoney"].includes(row.name ?? "");
+}
+
+function marginDelta(row: FinMindRow): number {
+  if (finiteNumber(row.TodayBalance) && finiteNumber(row.YesBalance)) {
+    return Number(row.TodayBalance) - Number(row.YesBalance);
+  }
+  return Number(row.buy ?? 0) - Number(row.sell ?? 0) - Number(row.Return ?? 0);
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function translateInstitutionName(value: string | undefined): string {
+  const labels: Record<string, string> = {
+    Foreign_Investor: "外資",
+    Foreign_Dealer_Self: "外資自營",
+    Investment_Trust: "投信",
+    Dealer_self: "自營商",
+    Dealer_Hedging: "避險自營商"
+  };
+  return labels[value ?? ""] ?? value ?? "法人";
+}
+
+function translateMarginName(value: string | undefined): string {
+  const labels: Record<string, string> = {
+    MarginPurchase: "融資",
+    MarginPurchaseMoney: "融資金額",
+    ShortSale: "融券"
+  };
+  return labels[value ?? ""] ?? value ?? "信用交易";
+}
+
+function finMindUrl(dataset: string, symbol: string, signalName?: string): string {
+  const params = new URLSearchParams();
+  params.set("dataset", dataset);
+  params.set("data_id", symbol);
+  if (signalName) {
+    params.set("name", signalName);
+  }
+  return `https://finmindtrade.com/analysis/#/data/api?${params.toString()}`;
 }
 
 function inferSecurityType(row: FinMindStockInfoRow): SecurityType {

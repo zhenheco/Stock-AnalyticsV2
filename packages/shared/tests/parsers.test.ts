@@ -191,4 +191,44 @@ describe("normalizeFinMindRows", () => {
       }
     ]);
   });
+
+  it("normalizes institutional buy/sell rows into chip events", () => {
+    expect(normalizeFinMindRows([
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 } as any
+    ], "2026-05-27T05:00:00.000Z")).toEqual([
+      {
+        source: "finmind",
+        title: "2330 台積電 外資 買超 4000 股",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=2330&name=Foreign_Investor",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 4000,
+        symbols: ["2330"]
+      }
+    ]);
+  });
+
+  it("normalizes margin purchase rows into chip events", () => {
+    expect(normalizeFinMindRows([
+      {
+        stock_id: "2330",
+        stock_name: "台積電",
+        date: "2026-05-27",
+        name: "MarginPurchase",
+        buy: 900,
+        sell: 100,
+        Return: 0,
+        TodayBalance: 12000,
+        YesBalance: 11200
+      } as any
+    ], "2026-05-27T05:00:00.000Z")).toEqual([
+      {
+        source: "finmind",
+        title: "2330 台積電 融資增加 800 張 餘額 12000",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockMarginPurchaseShortSale&data_id=2330&name=MarginPurchase",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 800,
+        symbols: ["2330"]
+      }
+    ]);
+  });
 });

@@ -101,23 +101,25 @@ async function fetchFinMindSources(
   const startedAt = now;
   const symbols = mergeSymbols(parseSymbols(env.FINMIND_SYMBOLS), dynamicSymbols, parseSymbolLimit(env.FINMIND_DYNAMIC_SYMBOL_LIMIT));
 
-  const [stockInfoRows, rows] = await Promise.all([
+  const [stockInfoRows, priceRows, institutionalRows, marginRows] = await Promise.all([
     fetchFinMindStockInfoRows(fetcher, env.FINMIND_TOKEN),
-    env.FINMIND_TOKEN ? fetchFinMindPriceRows(fetcher, env.FINMIND_TOKEN, symbols, now) : Promise.resolve([])
+    env.FINMIND_TOKEN ? fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockPrice") : Promise.resolve([]),
+    env.FINMIND_TOKEN ? fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockInstitutionalInvestorsBuySell") : Promise.resolve([]),
+    env.FINMIND_TOKEN ? fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMarginPurchaseShortSale") : Promise.resolve([])
   ]);
 
-  const flatRows = rows.flat();
+  const flatRows = [...priceRows, ...institutionalRows, ...marginRows].flat();
   const itemCount = flatRows.length + stockInfoRows.length;
-  const missingPriceConfig = !env.FINMIND_TOKEN || symbols.length === 0;
+  const missingSignalConfig = !env.FINMIND_TOKEN || symbols.length === 0;
   return {
     rows: flatRows,
     stockInfoRows,
     run: buildRun(
       "finmind",
       startedAt,
-      itemCount > 0 && !missingPriceConfig ? "ok" : "partial",
+      itemCount > 0 && !missingSignalConfig ? "ok" : "partial",
       itemCount,
-      missingPriceConfig ? "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price data" : itemCount > 0 ? undefined : "No FinMind rows returned"
+      missingSignalConfig ? "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip data" : itemCount > 0 ? undefined : "No FinMind rows returned"
     )
   };
 }
@@ -136,14 +138,20 @@ async function fetchFinMindStockInfoRows(fetcher: typeof fetch, token: string | 
   return body.data ?? [];
 }
 
-async function fetchFinMindPriceRows(fetcher: typeof fetch, token: string, symbols: string[], now: string): Promise<FinMindRow[][]> {
+async function fetchFinMindRowsByDataset(
+  fetcher: typeof fetch,
+  token: string,
+  symbols: string[],
+  now: string,
+  dataset: "TaiwanStockPrice" | "TaiwanStockInstitutionalInvestorsBuySell" | "TaiwanStockMarginPurchaseShortSale"
+): Promise<FinMindRow[][]> {
   if (symbols.length === 0) {
     return [];
   }
 
   return Promise.all(symbols.map(async (symbol) => {
     const url = new URL(FINMIND_ENDPOINT);
-    url.searchParams.set("dataset", "TaiwanStockPrice");
+    url.searchParams.set("dataset", dataset);
     url.searchParams.set("data_id", symbol);
     url.searchParams.set("start_date", now.slice(0, 10));
 
@@ -154,7 +162,10 @@ async function fetchFinMindPriceRows(fetcher: typeof fetch, token: string, symbo
       return [];
     }
     const body = await readJson<FinMindResponse>(response);
-    return body.data ?? [];
+    return (body.data ?? []).map((row) => ({
+      ...row,
+      stock_id: row.stock_id ?? symbol
+    }));
   }));
 }
 
@@ -228,7 +239,7 @@ function parseSymbolLimit(value: string | undefined): number {
   if (!Number.isFinite(parsed)) {
     return 20;
   }
-  return Math.min(Math.max(Math.trunc(parsed), 1), 50);
+  return Math.min(Math.max(Math.trunc(parsed), 1), 20);
 }
 
 function parseRssUrls(env: SourceEnv): string[] {
