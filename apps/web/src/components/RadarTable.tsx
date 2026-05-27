@@ -4,6 +4,7 @@ interface RadarTableProps {
   candidates: Candidate[];
   filters?: RadarFilters;
   onFiltersChange?: (filters: RadarFilters) => void;
+  onAddToWatchlist?: (candidate: Candidate) => void;
   watchlistSymbols?: ReadonlySet<string>;
 }
 
@@ -23,7 +24,7 @@ const DEFAULT_FILTERS: RadarFilters = {
   watchlistOnly: false
 };
 
-export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersChange, watchlistSymbols = new Set() }: RadarTableProps) {
+export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatchlist, onFiltersChange, watchlistSymbols = new Set() }: RadarTableProps) {
   if (candidates.length === 0) {
     return (
       <section className="empty-state" aria-live="polite">
@@ -143,7 +144,12 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersCha
                   </td>
                   <td>{formatTime(candidate.latestAt)}</td>
                   <td>
-                    <a className="detail-link" href={`/stock/${candidate.symbol}`}>研究</a>
+                    <div className="candidate-actions">
+                      <a className="detail-link" href={`/stock/${candidate.symbol}`}>研究</a>
+                      {onAddToWatchlist && !watchlistSymbols.has(candidate.symbol) ? (
+                        <button type="button" onClick={() => onAddToWatchlist(candidate)}>加入追蹤</button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

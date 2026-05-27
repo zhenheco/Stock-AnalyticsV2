@@ -132,6 +132,31 @@ describe("RadarTable", () => {
     expect(html).toContain("已追蹤");
     expect(html).toContain("只看追蹤");
   });
+
+  it("renders an add-to-watchlist action for untracked candidates", () => {
+    const html = renderToString(
+      <RadarTable
+        candidates={[candidate({ symbol: "2330", score: 8.4 })]}
+        onAddToWatchlist={() => undefined}
+        watchlistSymbols={new Set()}
+      />
+    );
+
+    expect(html).toContain("加入追蹤");
+  });
+
+  it("does not render an add-to-watchlist action for tracked candidates", () => {
+    const html = renderToString(
+      <RadarTable
+        candidates={[candidate({ symbol: "2330", score: 8.4 })]}
+        onAddToWatchlist={() => undefined}
+        watchlistSymbols={new Set(["2330"])}
+      />
+    );
+
+    expect(html).not.toContain("加入追蹤");
+    expect(html).toContain("已追蹤");
+  });
 });
 
 function candidate(overrides: Partial<Candidate>): Candidate {

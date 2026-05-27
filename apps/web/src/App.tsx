@@ -52,6 +52,26 @@ function RadarRoute() {
     return result;
   }
 
+  async function handleAddCandidateToWatchlist(candidate: Candidate) {
+    const adminToken = getStoredAdminToken() || window.prompt("Admin token")?.trim() || "";
+    if (!adminToken) {
+      return;
+    }
+    const entry = await addWatchlistEntry({ symbol: candidate.symbol, name: candidate.name, adminToken });
+    setState((current) => {
+      if (current.status !== "ready") {
+        return current;
+      }
+      return {
+        status: "ready",
+        data: {
+          ...current.data,
+          watchlist: mergeWatchlistEntry(current.data.watchlist, entry)
+        }
+      };
+    });
+  }
+
   return (
     <main>
       <header className="hero-band">
@@ -87,12 +107,30 @@ function RadarRoute() {
           <>
             <SourceHealth runs={runs} />
             <AdminRefreshPanel onRefresh={handleManualRefresh} />
-            <RadarTable candidates={candidates} filters={filters} onFiltersChange={setFilters} watchlistSymbols={watchlistSymbols} />
+            <RadarTable
+              candidates={candidates}
+              filters={filters}
+              onAddToWatchlist={handleAddCandidateToWatchlist}
+              onFiltersChange={setFilters}
+              watchlistSymbols={watchlistSymbols}
+            />
           </>
         ) : null}
       </section>
     </main>
   );
+}
+
+function getStoredAdminToken(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem("stock-analytics-admin-token")?.trim() ?? "";
+}
+
+export function mergeWatchlistEntry(entries: WatchlistEntry[], entry: WatchlistEntry): WatchlistEntry[] {
+  const withoutDuplicate = entries.filter((item) => item.symbol !== entry.symbol);
+  return [...withoutDuplicate, entry].sort((left, right) => left.symbol.localeCompare(right.symbol));
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
@@ -139,8 +177,7 @@ function WatchlistRoute() {
       if (current.status !== "ready") {
         return current;
       }
-      const withoutDuplicate = current.data.watchlist.filter((item) => item.symbol !== entry.symbol);
-      return { status: "ready", data: { watchlist: [...withoutDuplicate, entry].sort((left, right) => left.symbol.localeCompare(right.symbol)) } };
+      return { status: "ready", data: { watchlist: mergeWatchlistEntry(current.data.watchlist, entry) } };
     });
   }
 
