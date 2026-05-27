@@ -40,6 +40,7 @@ interface FinMindStockInfoResponse {
 const FINMIND_ENDPOINT = "https://api.finmindtrade.com/api/v4/data";
 const DEFAULT_PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html";
 const DEFAULT_RSS_FEED_URL = "https://tw.stock.yahoo.com/rss?category=news";
+const DEFAULT_FETCH_ATTEMPTS = 2;
 
 export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<LiveSourceResult> {
   const fetcher = input.fetcher ?? fetch;
@@ -179,11 +180,25 @@ async function fetchTextSource(
 }
 
 async function safeFetch(fetcher: typeof fetch, input: RequestInfo | URL, init?: RequestInit): Promise<Response | undefined> {
-  try {
-    return await fetcher(input, init);
-  } catch {
-    return undefined;
+  let lastResponse: Response | undefined;
+  for (let attempt = 1; attempt <= DEFAULT_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetcher(input, init);
+      if (!isRetryableResponse(response) || attempt === DEFAULT_FETCH_ATTEMPTS) {
+        return response;
+      }
+      lastResponse = response;
+    } catch {
+      if (attempt === DEFAULT_FETCH_ATTEMPTS) {
+        return undefined;
+      }
+    }
   }
+  return lastResponse;
+}
+
+function isRetryableResponse(response: Response): boolean {
+  return response.status === 408 || response.status === 429 || response.status >= 500;
 }
 
 async function readJson<T extends { data?: unknown[] }>(response: Response): Promise<T> {

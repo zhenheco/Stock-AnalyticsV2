@@ -76,6 +76,68 @@ describe("fetchLiveSources", () => {
     ]));
   });
 
+  it("retries transient PTT server failures before marking the source failed", async () => {
+    let pttAttempts = 0;
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("ptt.test")) {
+          pttAttempts += 1;
+          if (pttAttempts === 1) {
+            return new Response("temporary ptt edge failure", { status: 522 });
+          }
+          return textResponse("<div class=\"r-ent\"><div class=\"title\"><a href=\"/bbs/Stock/M.3.html\">2330 台積電</a></div><div class=\"date\"> 5/27</div></div>");
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(pttAttempts).toBe(2);
+    expect(result.sources.pttHtml).toContain("台積電");
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
+    ]));
+  });
+
+  it("retries transient RSS fetch exceptions before using fallback health", async () => {
+    let rssAttempts = 0;
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("rss.test")) {
+          rssAttempts += 1;
+          if (rssAttempts === 1) {
+            throw new Error("connection reset");
+          }
+          return textResponse("<rss><channel><item><title>台積電 2330 AI 新聞</title><link>https://news.test/1</link><pubDate>Wed, 27 May 2026 04:00:00 GMT</pubDate></item></channel></rss>");
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        return textResponse("<div class=\"r-ent\"><div class=\"title\"><a href=\"/bbs/Stock/M.3.html\">2330 台積電</a></div><div class=\"date\"> 5/27</div></div>");
+      }
+    });
+
+    expect(rssAttempts).toBe(2);
+    expect(result.sources.rssXml).toContain("台積電");
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 })
+    ]));
+  });
+
   it("tries configured RSS fallback feeds and reports raw RSS item count", async () => {
     const requested: string[] = [];
     const result = await fetchLiveSources({
