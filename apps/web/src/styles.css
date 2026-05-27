@@ -356,6 +356,14 @@ h2 {
   font-size: 0.8rem;
 }
 
+.health-advice {
+  border-top: 1px solid var(--line);
+  color: #fff4cf !important;
+  line-height: 1.5;
+  margin-top: 4px !important;
+  padding-top: 8px;
+}
+
 .admin-refresh {
   align-items: end;
   background: rgba(255, 255, 255, 0.035);

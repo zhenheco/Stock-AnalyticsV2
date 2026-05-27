@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { latestRunsBySource, SourceHealth } from "../src/components/SourceHealth";
+import { latestRunsBySource, sourceRunAdvice, SourceHealth } from "../src/components/SourceHealth";
 import type { SourceRun } from "@stock-analytics/shared";
 
 describe("SourceHealth", () => {
@@ -52,6 +52,20 @@ describe("SourceHealth", () => {
     expect(html).toContain("最新 05/27");
     expect(html).toContain("50 筆");
     expect(html).not.toContain("old failure");
+  });
+
+  it("translates a missing FinMind token into actionable data-gap advice", () => {
+    const run = sourceRun({
+      source: "finmind",
+      status: "partial",
+      message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip data"
+    });
+
+    expect(sourceRunAdvice(run)).toBe("FinMind token 尚未設定，價格與籌碼資料暫停；股票主檔仍會更新。");
+
+    const html = renderToString(<SourceHealth runs={[run]} />);
+    expect(html).toContain("FinMind token 尚未設定");
+    expect(html).toContain("價格與籌碼資料暫停");
   });
 });
 

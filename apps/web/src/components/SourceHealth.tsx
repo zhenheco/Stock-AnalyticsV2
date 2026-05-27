@@ -20,19 +20,28 @@ export function SourceHealth({ runs }: SourceHealthProps) {
       ) : (
         <div className="health-grid">
           {latestRuns.map((run) => (
-            <article className={`health-card ${run.status}`} key={run.id}>
-              <div className="health-card-top">
-                <span>{run.source}</span>
-                <time>{`最新 ${formatTime(run.startedAt)}`}</time>
-              </div>
-              <strong>{labelStatus(run.status)}</strong>
-              <small>{`${run.itemCount} 筆`}</small>
-              {run.message ? <p>{run.message}</p> : null}
-            </article>
+            <SourceHealthCard key={run.id} run={run} />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function SourceHealthCard({ run }: { run: SourceRun }) {
+  const advice = sourceRunAdvice(run);
+
+  return (
+    <article className={`health-card ${run.status}`}>
+      <div className="health-card-top">
+        <span>{run.source}</span>
+        <time>{`最新 ${formatTime(run.startedAt)}`}</time>
+      </div>
+      <strong>{labelStatus(run.status)}</strong>
+      <small>{`${run.itemCount} 筆`}</small>
+      {run.message ? <p>{run.message}</p> : null}
+      {advice ? <p className="health-advice">{advice}</p> : null}
+    </article>
   );
 }
 
@@ -45,6 +54,19 @@ export function latestRunsBySource(runs: SourceRun[]): SourceRun[] {
     }
   }
   return [...bySource.values()].sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+}
+
+export function sourceRunAdvice(run: SourceRun): string | null {
+  if (run.source === "finmind" && run.status === "partial" && run.message?.includes("FINMIND_TOKEN")) {
+    return "FinMind token 尚未設定，價格與籌碼資料暫停；股票主檔仍會更新。";
+  }
+  if (run.source === "rss" && run.status !== "ok") {
+    return "RSS 來源暫時不完整，系統會保留已取得內容並在下一次排程重試。";
+  }
+  if (run.source === "ptt" && run.status === "failed") {
+    return "PTT 可能暫時限流或連線失敗，下一次排程會自動重試。";
+  }
+  return null;
 }
 
 function labelStatus(status: SourceRun["status"]): string {
