@@ -50,7 +50,7 @@ Environment config:
 - `LLM_CLASSIFIER_MODEL` - Workers AI chat model. Defaults to `@cf/meta/llama-3.1-8b-instruct`.
 - `LLM_CLASSIFIER_LIMIT` - maximum non-FinMind events to classify per ingestion or scoring run. Defaults to `8`, capped at `20` to leave Worker cron timeout headroom.
 
-The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
+The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar. Data readiness also marks a source as degraded when its latest run is more than 3 hours old, so a stopped cron does not look healthy.
 
 Entity extraction uses explicit stock codes plus universe-backed company aliases. Longer overlapping aliases win, so a title mentioning `聯發科` does not also create a false hit for `聯發`.
 Percentage figures are removed before numeric symbol extraction, so a title such as `年增:4725%` does not create a false `4725` candidate.

@@ -21,7 +21,7 @@ describe("worker routes", () => {
         reason: "新聞與討論同步升溫"
       }
     ]);
-    const app = createApp({ repo, adminToken: "secret" });
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T06:00:00.000Z" });
 
     const response = await app.fetch(new Request("https://api.test/api/candidates"));
     const body = await response.json() as { candidates: unknown[]; updatedAt: string };
@@ -43,7 +43,7 @@ describe("worker routes", () => {
         itemCount: 3
       }
     ]);
-    const app = createApp({ repo, adminToken: "secret" });
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T06:00:00.000Z" });
 
     const response = await app.fetch(new Request("https://api.test/api/source-runs"));
     const body = await response.json() as { runs: unknown[] };
@@ -84,7 +84,7 @@ describe("worker routes", () => {
         message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip/revenue data"
       })
     ]);
-    const app = createApp({ repo, adminToken: "secret" });
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T06:00:00.000Z" });
 
     const response = await app.fetch(new Request("https://api.test/api/data-readiness"));
     const body = await response.json() as any;
@@ -129,7 +129,7 @@ describe("worker routes", () => {
         message: "FINMIND_TOKEN not configured; using anonymous limited price/chip/revenue data"
       })
     ]);
-    const app = createApp({ repo, adminToken: "secret" });
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T06:00:00.000Z" });
 
     const response = await app.fetch(new Request("https://api.test/api/data-readiness"));
     const body = await response.json() as any;
@@ -141,6 +141,56 @@ describe("worker routes", () => {
         id: "finmind-signals",
         status: "degraded",
         message: "FinMind 價格、籌碼與營收資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
+      })
+    ]));
+  });
+
+  it("marks otherwise healthy source runs as degraded when they are stale", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
+      symbol: String(1000 + index),
+      name: `公司${index}`,
+      securityType: "stock" as const,
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    })));
+    await repo.saveCandidates([{
+      symbol: "2330",
+      name: "台積電",
+      score: 8.4,
+      eventCount: 3,
+      sourceCount: 3,
+      latestTitle: "台積電 AI 訂單",
+      latestAt: "2026-05-27T05:00:00.000Z",
+      sources: ["rss", "ptt", "finmind"],
+      tags: ["AI"],
+      reason: "事件訊號"
+    }]);
+    await repo.saveSourceRuns([
+      sourceRun({ source: "rss", status: "ok", itemCount: 50, startedAt: "2026-05-27T05:00:00.000Z" }),
+      sourceRun({ source: "ptt", status: "ok", itemCount: 10, startedAt: "2026-05-27T05:00:00.000Z" }),
+      sourceRun({ source: "finmind", status: "ok", itemCount: 4274, startedAt: "2026-05-27T05:00:00.000Z" })
+    ]);
+    const app = createApp({
+      repo,
+      adminToken: "secret",
+      now: () => "2026-05-27T10:30:00.000Z"
+    });
+
+    const response = await app.fetch(new Request("https://api.test/api/data-readiness"));
+    const body = await response.json() as any;
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("degraded");
+    expect(body.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "social-events",
+        status: "degraded",
+        message: expect.stringContaining("已超過 3 小時")
+      }),
+      expect.objectContaining({
+        id: "finmind-signals",
+        status: "degraded",
+        message: expect.stringContaining("已超過 3 小時")
       })
     ]));
   });

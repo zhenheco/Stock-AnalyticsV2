@@ -16,6 +16,7 @@ interface AppOptions {
   classifierEnabled?: boolean;
   classifierModel?: string;
   classifierLimit?: number;
+  now?: () => string;
 }
 
 export interface WorkerEnv {
@@ -80,7 +81,7 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
   }
 
   if (url.pathname === "/api/data-readiness" && request.method === "GET") {
-    return json(await dataReadiness(options.repo));
+    return json(await dataReadiness(options.repo, options.now?.() ?? new Date().toISOString()));
   }
 
   if (url.pathname === "/api/universe" && request.method === "GET") {
@@ -219,7 +220,9 @@ async function readJson(request: Request): Promise<unknown> {
   }
 }
 
-async function dataReadiness(repo: Repository): Promise<DataReadiness> {
+const SOURCE_FRESHNESS_HOURS = 3;
+
+async function dataReadiness(repo: Repository, now: string): Promise<DataReadiness> {
   const [candidates, runs, universeCount, watchlist] = await Promise.all([
     repo.listCandidates(),
     repo.listSourceRuns(),
@@ -230,8 +233,8 @@ async function dataReadiness(repo: Repository): Promise<DataReadiness> {
   const checks = [
     checkUniverse(universeCount),
     checkCandidates(candidates.length),
-    checkSocialEvents(latestRuns),
-    checkFinMindSignals(latestRuns)
+    checkSocialEvents(latestRuns, now),
+    checkFinMindSignals(latestRuns, now)
   ];
 
   return {
@@ -260,17 +263,28 @@ function checkCandidates(count: number): ReadinessCheck {
   return { id: "candidates", label: "候選股", status: "missing", message: "尚未產出候選股，請先執行資料同步與評分" };
 }
 
-function checkSocialEvents(latestRuns: SourceRun[]): ReadinessCheck {
+function checkSocialEvents(latestRuns: SourceRun[], now: string): ReadinessCheck {
   const ptt = latestRuns.find((run) => run.source === "ptt");
   const rss = latestRuns.find((run) => run.source === "rss");
+  if ((ptt && !isFreshRun(ptt, now)) || (rss && !isFreshRun(rss, now))) {
+    return { id: "social-events", label: "社群/時事", status: "degraded", message: `PTT 或 RSS 最近一次同步已超過 ${SOURCE_FRESHNESS_HOURS} 小時，請檢查 cron 或手動同步` };
+  }
   if (ptt?.status === "ok" && rss?.status === "ok") {
     return { id: "social-events", label: "社群/時事", status: "ready", message: "PTT 與 RSS 來源最近一次同步正常" };
   }
   return { id: "social-events", label: "社群/時事", status: "degraded", message: "PTT 或 RSS 最近一次同步不完整，系統會保留既有資料並重試" };
 }
 
-function checkFinMindSignals(latestRuns: SourceRun[]): ReadinessCheck {
+function checkFinMindSignals(latestRuns: SourceRun[], now: string): ReadinessCheck {
   const finmind = latestRuns.find((run) => run.source === "finmind");
+  if (finmind && !isFreshRun(finmind, now)) {
+    return {
+      id: "finmind-signals",
+      label: "FinMind 價格/籌碼/營收",
+      status: "degraded",
+      message: `FinMind 最近一次同步已超過 ${SOURCE_FRESHNESS_HOURS} 小時，請檢查 cron 或手動同步`
+    };
+  }
   if (finmind?.status === "ok") {
     return { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "ready", message: "FinMind 價格、籌碼與營收資料已接通" };
   }
@@ -286,6 +300,15 @@ function checkFinMindSignals(latestRuns: SourceRun[]): ReadinessCheck {
     return { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格、籌碼與營收資料未進入事件管線" };
   }
   return { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "degraded", message: finmind?.message ?? "FinMind 尚未完成最近一次同步" };
+}
+
+function isFreshRun(run: SourceRun, now: string): boolean {
+  const startedAtMs = Date.parse(run.startedAt);
+  const nowMs = Date.parse(now);
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(nowMs)) {
+    return true;
+  }
+  return nowMs - startedAtMs <= SOURCE_FRESHNESS_HOURS * 60 * 60 * 1000;
 }
 
 function latestRunsBySource(runs: SourceRun[]): SourceRun[] {
