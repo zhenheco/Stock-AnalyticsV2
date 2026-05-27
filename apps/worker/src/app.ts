@@ -1,5 +1,6 @@
 import { D1Repository } from "./repository/d1";
 import type { Repository } from "./repository/types";
+import type { DataReadiness, ReadinessCheck, ReadinessStatus, SourceRun } from "@stock-analytics/shared";
 import { persistSourceEvents, recomputeCandidates, runIngestion, type IngestionSources } from "./ingest";
 import { verifyIngestSignature } from "./security";
 import { fetchLiveSources, type SourceEnv } from "./sources/live";
@@ -75,6 +76,10 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
 
   if (url.pathname === "/api/source-runs" && request.method === "GET") {
     return json({ runs: await options.repo.listSourceRuns() });
+  }
+
+  if (url.pathname === "/api/data-readiness" && request.method === "GET") {
+    return json(await dataReadiness(options.repo));
   }
 
   if (url.pathname === "/api/universe" && request.method === "GET") {
@@ -211,6 +216,88 @@ async function readJson(request: Request): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+async function dataReadiness(repo: Repository): Promise<DataReadiness> {
+  const [candidates, runs, universeCount, watchlist] = await Promise.all([
+    repo.listCandidates(),
+    repo.listSourceRuns(),
+    repo.countUniverse(),
+    repo.listWatchlist()
+  ]);
+  const latestRuns = latestRunsBySource(runs);
+  const checks = [
+    checkUniverse(universeCount),
+    checkCandidates(candidates.length),
+    checkSocialEvents(latestRuns),
+    checkFinMindSignals(latestRuns)
+  ];
+
+  return {
+    status: overallReadiness(checks),
+    updatedAt: candidates[0]?.latestAt ?? latestRuns[0]?.startedAt ?? null,
+    counts: {
+      candidates: candidates.length,
+      universe: universeCount,
+      watchlist: watchlist.length
+    },
+    checks
+  };
+}
+
+function checkUniverse(count: number): ReadinessCheck {
+  if (count >= 1000) {
+    return { id: "universe", label: "股票主檔", status: "ready", message: `${count} 檔股票主檔已可用` };
+  }
+  return { id: "universe", label: "股票主檔", status: "missing", message: `股票主檔只有 ${count} 檔，需先完成 FinMind TaiwanStockInfo 同步` };
+}
+
+function checkCandidates(count: number): ReadinessCheck {
+  if (count > 0) {
+    return { id: "candidates", label: "候選股", status: "ready", message: `${count} 檔候選股已產出` };
+  }
+  return { id: "candidates", label: "候選股", status: "missing", message: "尚未產出候選股，請先執行資料同步與評分" };
+}
+
+function checkSocialEvents(latestRuns: SourceRun[]): ReadinessCheck {
+  const ptt = latestRuns.find((run) => run.source === "ptt");
+  const rss = latestRuns.find((run) => run.source === "rss");
+  if (ptt?.status === "ok" && rss?.status === "ok") {
+    return { id: "social-events", label: "社群/時事", status: "ready", message: "PTT 與 RSS 來源最近一次同步正常" };
+  }
+  return { id: "social-events", label: "社群/時事", status: "degraded", message: "PTT 或 RSS 最近一次同步不完整，系統會保留既有資料並重試" };
+}
+
+function checkFinMindSignals(latestRuns: SourceRun[]): ReadinessCheck {
+  const finmind = latestRuns.find((run) => run.source === "finmind");
+  if (finmind?.status === "ok") {
+    return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "ready", message: "FinMind 價格與籌碼資料已接通" };
+  }
+  if (finmind?.message?.includes("FINMIND_TOKEN")) {
+    return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格與籌碼資料未進入事件管線" };
+  }
+  return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "degraded", message: finmind?.message ?? "FinMind 尚未完成最近一次同步" };
+}
+
+function latestRunsBySource(runs: SourceRun[]): SourceRun[] {
+  const bySource = new Map<SourceRun["source"], SourceRun>();
+  for (const run of runs) {
+    const current = bySource.get(run.source);
+    if (!current || run.startedAt > current.startedAt) {
+      bySource.set(run.source, run);
+    }
+  }
+  return [...bySource.values()].sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+}
+
+function overallReadiness(checks: ReadinessCheck[]): ReadinessStatus {
+  if (checks.some((check) => check.status === "missing" && check.id !== "finmind-signals")) {
+    return "missing";
+  }
+  if (checks.some((check) => check.status !== "ready")) {
+    return "degraded";
+  }
+  return "ready";
 }
 
 function parseJson(value: string): unknown {

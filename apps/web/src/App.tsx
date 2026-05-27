@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
-import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "./api";
+import type { Candidate, DataReadiness, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import { addWatchlistEntry, fetchCandidates, fetchDataReadiness, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "./api";
 import { readStoredAdminToken } from "./adminToken";
 import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
+import { DataReadinessPanel } from "./components/DataReadinessPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
 import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
@@ -28,7 +29,7 @@ export function App() {
   return <RadarRoute />;
 }
 
-type DashboardData = { candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[] };
+type DashboardData = { candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[]; readiness: DataReadiness };
 
 function RadarRoute() {
   const [state, setState] = useState<LoadState<DashboardData>>({ status: "loading" });
@@ -114,6 +115,7 @@ function RadarRoute() {
         {state.status === "ready" ? (
           <>
             <SourceHealth runs={runs} />
+            <DataReadinessPanel readiness={state.data.readiness} />
             <AdminRefreshPanel onRefresh={handleManualRefresh} onScore={handleManualScore} />
             <RadarTable
               candidates={candidates}
@@ -135,12 +137,13 @@ export function mergeWatchlistEntry(entries: WatchlistEntry[], entry: WatchlistE
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
-  const [candidateData, healthData, universeData, watchlistData] = await Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist()]);
+  const [candidateData, healthData, universeData, watchlistData, readiness] = await Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist(), fetchDataReadiness()]);
   return {
     ...candidateData,
     runs: healthData.runs,
     universeCount: universeData.count,
-    watchlist: watchlistData.watchlist
+    watchlist: watchlistData.watchlist,
+    readiness
   };
 }
 

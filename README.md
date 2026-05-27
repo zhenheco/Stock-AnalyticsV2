@@ -13,6 +13,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 ## MVP Routes
 
 - `GET /api/candidates`
+- `GET /api/data-readiness`
 - `GET /api/stocks/:symbol/research`
 - `GET /api/watchlist`
 - `GET /api/source-runs`
@@ -61,6 +62,7 @@ Scoring favors research catalysts such as AI, industry demand, revenue, and pric
 ## Dashboard
 
 - Radar page shows candidate stocks and source health.
+- Data readiness panel summarizes candidate, universe, social/news, and FinMind price/chip connection state.
 - Stock detail page shows event evidence, watchlist controls, and links out to TradingView instead of storing full historical price data.
 - Watchlist page includes a personal add form. The admin token is sent as `x-admin-token` and cached in browser local storage for convenience.
 

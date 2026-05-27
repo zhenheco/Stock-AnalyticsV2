@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, DataReadiness, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -47,6 +47,10 @@ export async function removeWatchlistEntry(input: { symbol: string; adminToken: 
 
 export async function fetchSourceRuns(): Promise<{ runs: SourceRun[] }> {
   return fetchJson<{ runs: SourceRun[] }>("/api/source-runs");
+}
+
+export async function fetchDataReadiness(): Promise<DataReadiness> {
+  return fetchJson<DataReadiness>("/api/data-readiness");
 }
 
 export async function fetchUniverse(): Promise<{ stocks: UniverseStock[]; count: number }> {

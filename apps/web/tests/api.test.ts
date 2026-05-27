@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "../src/api";
+import { fetchDataReadiness, removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "../src/api";
 
 describe("api", () => {
   afterEach(() => {
@@ -54,5 +54,22 @@ describe("api", () => {
         "x-admin-token": "secret-token"
       }
     });
+  });
+
+  it("fetches data readiness from the Worker readiness endpoint", async () => {
+    const payload = {
+      status: "degraded",
+      updatedAt: "2026-05-27T10:00:00.000Z",
+      counts: { candidates: 100, universe: 4114, watchlist: 0 },
+      checks: []
+    };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
+      headers: { "content-type": "application/json" }
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchDataReadiness()).resolves.toEqual(payload);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/data-readiness", undefined);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SourceRun } from "@stock-analytics/shared";
 import { createApp } from "../src/app";
 import { MemoryRepository } from "../src/repository/memory";
 import { signIngestBody } from "../src/security";
@@ -51,6 +52,51 @@ describe("worker routes", () => {
     expect(body.runs).toEqual([
       expect.objectContaining({ source: "rss", status: "ok", itemCount: 3 })
     ]);
+  });
+
+  it("returns data readiness with a FinMind price/chip gap when token-backed rows are missing", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
+      symbol: String(1000 + index),
+      name: `公司${index}`,
+      securityType: "stock" as const,
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    })));
+    await repo.saveCandidates([{
+      symbol: "2330",
+      name: "台積電",
+      score: 8.4,
+      eventCount: 2,
+      sourceCount: 2,
+      latestTitle: "台積電 AI 訂單",
+      latestAt: "2026-05-27T05:00:00.000Z",
+      sources: ["rss", "ptt"],
+      tags: ["AI"],
+      reason: "事件訊號"
+    }]);
+    await repo.saveSourceRuns([
+      sourceRun({ source: "rss", status: "ok", itemCount: 50 }),
+      sourceRun({ source: "ptt", status: "ok", itemCount: 10 }),
+      sourceRun({
+        source: "finmind",
+        status: "partial",
+        itemCount: 4114,
+        message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip data"
+      })
+    ]);
+    const app = createApp({ repo, adminToken: "secret" });
+
+    const response = await app.fetch(new Request("https://api.test/api/data-readiness"));
+    const body = await response.json() as any;
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("degraded");
+    expect(body.counts).toEqual({ candidates: 1, universe: 1200, watchlist: 0 });
+    expect(body.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "finmind-signals", status: "missing", message: expect.stringContaining("FINMIND_TOKEN") }),
+      expect.objectContaining({ id: "social-events", status: "ready" }),
+      expect.objectContaining({ id: "universe", status: "ready" })
+    ]));
   });
 
   it("returns universe metadata for connected Taiwan stock master data", async () => {
@@ -366,3 +412,15 @@ describe("worker routes", () => {
     expect(await repo.listEventsForSymbol("2330")).toHaveLength(1);
   });
 });
+
+function sourceRun(overrides: Partial<SourceRun>): SourceRun {
+  return {
+    id: `${overrides.source ?? "rss"}:2026-05-27T05:00:00.000Z`,
+    source: "rss",
+    status: "ok",
+    startedAt: "2026-05-27T05:00:00.000Z",
+    finishedAt: "2026-05-27T05:00:01.000Z",
+    itemCount: 1,
+    ...overrides
+  };
+}

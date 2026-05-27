@@ -63,6 +63,26 @@ export interface SourceRun {
   message?: string;
 }
 
+export type ReadinessStatus = "ready" | "degraded" | "missing";
+
+export interface ReadinessCheck {
+  id: string;
+  label: string;
+  status: ReadinessStatus;
+  message: string;
+}
+
+export interface DataReadiness {
+  status: ReadinessStatus;
+  updatedAt: string | null;
+  counts: {
+    candidates: number;
+    universe: number;
+    watchlist: number;
+  };
+  checks: ReadinessCheck[];
+}
+
 export interface LlmClassification {
   sentiment: number;
   tags: string[];
