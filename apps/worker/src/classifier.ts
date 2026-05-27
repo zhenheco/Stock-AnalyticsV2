@@ -9,6 +9,32 @@ export interface EventClassifier {
 }
 
 const DEFAULT_CLASSIFIER_MODEL = "@cf/meta/llama-3.1-8b-instruct";
+const SUPPORTED_EVENT_TAGS = new Set([
+  "AI",
+  "供應鏈",
+  "產業題材",
+  "營收",
+  "財報",
+  "公告",
+  "籌碼",
+  "股利",
+  "法說",
+  "併購",
+  "政策",
+  "國際市場",
+  "價格量能",
+  "討論熱度",
+  "先進封裝",
+  "注意交易",
+  "記憶體",
+  "機器人",
+  "能源",
+  "關稅",
+  "報價",
+  "需求",
+  "漲停",
+  "跌停"
+]);
 
 export function createWorkersAiClassifier(ai: WorkersAiBinding, model = DEFAULT_CLASSIFIER_MODEL): EventClassifier {
   return {
@@ -20,7 +46,8 @@ export function createWorkersAiClassifier(ai: WorkersAiBinding, model = DEFAULT_
             content: [
               "你是台股研究雷達的短文本分類器。",
               "只輸出 JSON，不要 markdown，不要買賣建議，不要進出場價格。",
-              "格式: {\"sentiment\":1到5整數,\"tags\":[最多3個繁中短標籤],\"reason\":\"40字內繁中理由\"}"
+              `tags 只能從這份清單挑最多3個: ${[...SUPPORTED_EVENT_TAGS].join("、")}。`,
+              "格式: {\"sentiment\":1到5整數,\"tags\":[標籤],\"reason\":\"40字內繁中理由\"}"
             ].join("")
           },
           {
@@ -34,8 +61,15 @@ export function createWorkersAiClassifier(ai: WorkersAiBinding, model = DEFAULT_
         ]
       });
 
-      return validateLlmClassification(parseWorkersAiJson(response));
+      return normalizeWorkersAiClassification(validateLlmClassification(parseWorkersAiJson(response)));
     }
+  };
+}
+
+function normalizeWorkersAiClassification(classification: LlmClassification): LlmClassification {
+  return {
+    ...classification,
+    tags: classification.tags.filter((tag) => SUPPORTED_EVENT_TAGS.has(tag)).slice(0, 3)
   };
 }
 

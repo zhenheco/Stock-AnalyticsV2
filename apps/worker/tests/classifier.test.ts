@@ -19,4 +19,26 @@ describe("createWorkersAiClassifier", () => {
       reason: "AI 訂單升溫"
     });
   });
+
+  it("keeps only supported event category tags from model output", async () => {
+    const classifier = createWorkersAiClassifier({
+      run: async () => ({
+        response: JSON.stringify({
+          sentiment: 4,
+          tags: ["台積電", "AI", "供應鏈", "3奈米"],
+          reason: "AI 供應鏈事件"
+        })
+      })
+    });
+
+    await expect(classifier.classify({
+      source: "rss",
+      title: "台積電 2330 AI 供應鏈訂單升溫",
+      engagement: 0
+    })).resolves.toEqual({
+      sentiment: 4,
+      tags: ["AI", "供應鏈"],
+      reason: "AI 供應鏈事件"
+    });
+  });
 });
