@@ -13,6 +13,7 @@ export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAd
   const tradingViewSymbol = `TWSE:${symbol}`;
   const widgetUrl = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tradingViewSymbol)}&interval=D&theme=dark`;
   const summary = summarizeResearch(events);
+  const eventGroups = groupResearchEvents(events);
 
   return (
     <main className="detail-page">
@@ -74,6 +75,37 @@ export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAd
         </div>
       </section>
 
+      <section className="evidence-lanes">
+        <div className="section-title compact-title">
+          <div>
+            <p className="eyebrow">Evidence Mix</p>
+            <h2>證據分布</h2>
+          </div>
+        </div>
+        <div className="lane-grid">
+          {eventGroups.map((group) => (
+            <article key={group.id} className="evidence-lane">
+              <header>
+                <span>{group.label}</span>
+                <strong>{group.events.length}</strong>
+              </header>
+              {group.events.length === 0 ? (
+                <p className="muted">尚無事件</p>
+              ) : (
+                <ul>
+                  {group.events.slice(0, 3).map((event) => (
+                    <li key={event.id}>
+                      <time>{formatTime(event.publishedAt)}</time>
+                      <a href={event.url}>{event.title}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="timeline">
         <div className="section-title">
           <p className="eyebrow">Evidence</p>
@@ -105,6 +137,31 @@ export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAd
   );
 }
 
+export interface ResearchEventGroup {
+  id: "social" | "news" | "market" | "revenue";
+  label: string;
+  events: EventRecord[];
+}
+
+const RESEARCH_GROUPS: Array<Omit<ResearchEventGroup, "events">> = [
+  { id: "social", label: "社群討論" },
+  { id: "news", label: "新聞時事" },
+  { id: "market", label: "價格/籌碼" },
+  { id: "revenue", label: "營收基本面" }
+];
+
+export function groupResearchEvents(events: EventRecord[]): ResearchEventGroup[] {
+  const groups = new Map<ResearchEventGroup["id"], EventRecord[]>(RESEARCH_GROUPS.map((group) => [group.id, []]));
+  for (const event of events) {
+    groups.get(researchGroupId(event))?.push(event);
+  }
+
+  return RESEARCH_GROUPS.map((group) => ({
+    ...group,
+    events: [...(groups.get(group.id) ?? [])].sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))
+  }));
+}
+
 export function summarizeResearch(events: EventRecord[]): { eventCount: number; sourceCount: number; averageSentiment: number; topTags: string[] } {
   const tags = events.flatMap((event) => event.tags);
   const tagCounts = new Map<string, number>();
@@ -125,6 +182,19 @@ export function summarizeResearch(events: EventRecord[]): { eventCount: number; 
       .slice(0, 5)
       .map(([tag]) => tag)
   };
+}
+
+function researchGroupId(event: EventRecord): ResearchEventGroup["id"] {
+  if (event.source === "ptt") {
+    return "social";
+  }
+  if (event.source === "rss") {
+    return "news";
+  }
+  if (event.tags.includes("營收")) {
+    return "revenue";
+  }
+  return "market";
 }
 
 function formatTime(value: string): string {

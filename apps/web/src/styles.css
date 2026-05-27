@@ -666,6 +666,65 @@ h2 {
   margin-top: 8px;
 }
 
+.evidence-lanes {
+  margin-bottom: 28px;
+}
+
+.lane-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.evidence-lane {
+  background: var(--panel);
+  border-top: 3px solid var(--amber);
+  min-height: 180px;
+  padding: 14px;
+}
+
+.evidence-lane header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.evidence-lane header span {
+  color: #fff4cf;
+  font-weight: 800;
+}
+
+.evidence-lane header strong {
+  color: var(--green);
+  font-size: 1.5rem;
+}
+
+.evidence-lane ul {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.evidence-lane li {
+  display: grid;
+  gap: 4px;
+}
+
+.evidence-lane time {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.evidence-lane a {
+  color: inherit;
+  font-weight: 800;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
 .timeline ol {
   list-style: none;
   padding: 0;
@@ -788,7 +847,8 @@ h2 {
 @media (max-width: 760px) {
   .hero-grid,
   .chart-band,
-  .summary-grid {
+  .summary-grid,
+  .lane-grid {
     grid-template-columns: 1fr;
   }
 
