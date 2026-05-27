@@ -410,6 +410,34 @@ h2 {
   background: #080909;
 }
 
+.research-summary {
+  margin-bottom: 28px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.summary-grid article {
+  border-top: 3px solid var(--green);
+  background: var(--panel);
+  min-height: 96px;
+  padding: 14px;
+}
+
+.summary-grid article span {
+  color: var(--muted);
+}
+
+.summary-grid article strong {
+  color: #fff4cf;
+  display: block;
+  font-size: 1.9rem;
+  margin-top: 8px;
+}
+
 .timeline ol {
   list-style: none;
   padding: 0;
@@ -431,6 +459,21 @@ h2 {
 .watch-row time {
   color: var(--amber);
   font-size: 0.9rem;
+}
+
+.event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.event-meta span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #e6dfc8;
+  font-size: 0.8rem;
+  padding: 3px 7px;
 }
 
 .timeline p {
@@ -497,7 +540,8 @@ h2 {
 
 @media (max-width: 760px) {
   .hero-grid,
-  .chart-band {
+  .chart-band,
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 
