@@ -1,4 +1,5 @@
 import type { EventRecord, UniverseStock } from "@stock-analytics/shared";
+import { ResearchOnlyNotice } from "../components/ResearchOnlyNotice";
 
 interface StockDetailProps {
   symbol: string;
@@ -35,6 +36,8 @@ export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAd
           ) : null}
         </div>
       </header>
+
+      <ResearchOnlyNotice />
 
       <section className="chart-band">
         <div className="chart-copy">

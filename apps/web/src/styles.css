@@ -404,6 +404,23 @@ h2 {
   margin-bottom: 22px;
 }
 
+.research-notice {
+  background: rgba(215, 166, 66, 0.09);
+  border-left: 3px solid var(--amber);
+  margin-bottom: 22px;
+  padding: 12px 14px;
+}
+
+.research-notice strong {
+  color: #fff4cf;
+}
+
+.research-notice p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
 .compact-title {
   margin-bottom: 10px;
 }

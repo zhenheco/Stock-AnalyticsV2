@@ -29,6 +29,13 @@ describe("StockDetail", () => {
     expect(html).toContain("半導體業");
   });
 
+  it("keeps stock research clearly separated from trading advice", () => {
+    const html = renderToString(<StockDetail symbol="2330" events={[]} />);
+
+    expect(html).toContain("研究用途");
+    expect(html).toContain("不是買賣建議");
+  });
+
   it("renders an add-to-watchlist action when the stock is not tracked", () => {
     const html = renderToString(<StockDetail
       symbol="2330"

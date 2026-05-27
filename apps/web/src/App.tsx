@@ -5,6 +5,7 @@ import { readStoredAdminToken } from "./adminToken";
 import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
 import { DataReadinessPanel } from "./components/DataReadinessPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
+import { ResearchOnlyNotice } from "./components/ResearchOnlyNotice";
 import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
 import { Watchlist } from "./pages/Watchlist";
@@ -114,6 +115,7 @@ function RadarRoute() {
         {state.status === "error" ? <ErrorPanel message={state.message} /> : null}
         {state.status === "ready" ? (
           <>
+            <ResearchOnlyNotice />
             <SourceHealth runs={runs} />
             <DataReadinessPanel readiness={state.data.readiness} />
             <AdminRefreshPanel onRefresh={handleManualRefresh} onScore={handleManualScore} />
