@@ -352,6 +352,19 @@ describe("worker routes", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("x-admin-token");
   });
 
+  it("allows browser preflight for signed social ingest requests", async () => {
+    const app = createApp({ repo: new MemoryRepository(), ingestToken: "ingest-secret" });
+
+    const response = await app.fetch(new Request("https://api.test/api/ingest/social", {
+      method: "OPTIONS"
+    }));
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-methods")).toContain("POST");
+    expect(response.headers.get("access-control-allow-headers")).toContain("content-type");
+    expect(response.headers.get("access-control-allow-headers")).toContain("x-ingest-signature");
+  });
+
   it("runs fixture ingestion through an admin endpoint", async () => {
     const app = createApp({ repo: new MemoryRepository(), adminToken: "secret", ingestToken: "ingest-secret" });
 
