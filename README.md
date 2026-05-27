@@ -86,6 +86,7 @@ FinMind price/chip/revenue ingestion can run in anonymous limited mode, but a no
 The helper below reports only token presence/length and readiness, never the token value:
 
 ```bash
+pnpm check:secrets
 pnpm check:finmind-secret
 ```
 

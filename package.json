@@ -8,6 +8,7 @@
     "check:finmind-secret": "node scripts/sync-finmind-secret.mjs --check-only",
     "check:production": "node scripts/production-health.mjs",
     "check:production:ready": "node scripts/production-health.mjs --require-ready",
+    "check:secrets": "node scripts/secrets-doctor.mjs",
     "deploy": "pnpm deploy:worker && pnpm deploy:web",
     "deploy:web": "pnpm --filter @stock-analytics/web run deploy",
     "deploy:worker": "pnpm --filter @stock-analytics/worker run deploy",
