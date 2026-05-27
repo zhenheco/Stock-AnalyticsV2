@@ -12,7 +12,7 @@ describe("complete-production script helpers", () => {
     })).resolves.toEqual([
       "STEP check:secrets:ready ok",
       "STEP check:production:smoke ok",
-      "STEP sync:finmind-secret ok",
+      "STEP sync:finmind-secret:optional ok",
       "STEP check:production:ready ok",
       "PRODUCTION_COMPLETION_READY"
     ]);
@@ -20,7 +20,7 @@ describe("complete-production script helpers", () => {
     expect(calls).toEqual([
       "pnpm check:secrets:ready",
       "pnpm check:production:smoke",
-      "pnpm sync:finmind-secret",
+      "pnpm sync:finmind-secret --optional",
       "pnpm check:production:ready"
     ]);
   });

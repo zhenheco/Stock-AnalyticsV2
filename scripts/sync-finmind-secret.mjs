@@ -23,6 +23,7 @@ export function summarizeReadiness(readiness) {
 
 async function main(argv) {
   const checkOnly = argv.includes("--check-only");
+  const optional = argv.includes("--optional");
   const skipIngest = argv.includes("--skip-ingest");
   const finmindRef = process.env.FINMIND_TOKEN_REF ?? DEFAULT_FINMIND_REF;
   const adminRef = process.env.ADMIN_TOKEN_REF ?? DEFAULT_ADMIN_REF;
@@ -36,6 +37,11 @@ async function main(argv) {
   }
 
   if (!finmindToken) {
+    if (optional) {
+      console.log("FINMIND_TOKEN_SYNC_SKIPPED optional=true");
+      console.log(summarizeReadiness(await fetchReadiness()));
+      return;
+    }
     throw new Error(`FINMIND_TOKEN is empty at ${finmindRef}. Fill the 1Password item before syncing Cloudflare secrets.`);
   }
 

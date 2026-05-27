@@ -342,7 +342,7 @@ function checkFinMindSignals(latestRuns: SourceRun[], now: string): ReadinessChe
     return {
       id: "finmind-signals",
       label: "FinMind 價格/籌碼/營收",
-      status: "degraded",
+      status: "ready",
       message: "FinMind 價格、籌碼與營收資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
     };
   }

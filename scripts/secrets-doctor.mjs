@@ -4,11 +4,13 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_ITEM = "stock-analytics-v2";
 const DEFAULT_VAULT = "Dev";
-const REQUIRED_FIELDS = ["ADMIN_TOKEN", "INGEST_WEBHOOK_TOKEN", "FINMIND_TOKEN"];
+const REQUIRED_FIELDS = ["ADMIN_TOKEN", "INGEST_WEBHOOK_TOKEN"];
+const OPTIONAL_FIELDS = ["FINMIND_TOKEN"];
+const DISPLAY_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
 export function summarizeSecretFields(item) {
   const fields = item.fields ?? [];
-  const lines = REQUIRED_FIELDS.map((label) => {
+  const lines = DISPLAY_FIELDS.map((label) => {
     const field = fields.find((candidate) => candidate.label === label);
     if (!field) {
       return `SECRET ${label} field-missing length=0`;
@@ -18,7 +20,7 @@ export function summarizeSecretFields(item) {
   });
 
   if (lines.some((line) => line.includes("FINMIND_TOKEN missing") || line.includes("FINMIND_TOKEN field-missing"))) {
-    lines.push("NEXT_ACTION fill op://Dev/stock-analytics-v2/FINMIND_TOKEN then run pnpm complete:production");
+    lines.push("NEXT_ACTION run pnpm complete:production; optional: fill op://Dev/stock-analytics-v2/FINMIND_TOKEN to improve FinMind quota stability");
   } else {
     lines.push("NEXT_ACTION run pnpm complete:production");
   }

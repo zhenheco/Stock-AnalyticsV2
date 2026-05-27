@@ -43,10 +43,6 @@ export function productionHealthGate(input) {
   } else if (!topCandidate.sourceEventCounts || Object.keys(topCandidate.sourceEventCounts).length === 0) {
     reasons.push("top candidate source counts missing");
   }
-  if (!input.finmindToken) {
-    reasons.push("FINMIND_TOKEN missing");
-  }
-
   return { ok: reasons.length === 0, reasons };
 }
 

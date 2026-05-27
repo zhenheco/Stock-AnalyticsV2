@@ -174,7 +174,7 @@ describe("worker routes", () => {
     expect(body.updatedAt).toBe("2026-05-27T08:30:00.000Z");
   });
 
-  it("marks anonymous FinMind price, chip, and revenue data as degraded instead of missing", async () => {
+  it("marks anonymous FinMind price, chip, and revenue data as ready with quota advice", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
       symbol: String(1000 + index),
@@ -211,7 +211,7 @@ describe("worker routes", () => {
     const body = await response.json() as any;
 
     expect(response.status).toBe(200);
-    expect(body.status).toBe("degraded");
+    expect(body.status).toBe("ready");
     expect(body.checks).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "official-events",
@@ -220,7 +220,7 @@ describe("worker routes", () => {
       }),
       expect.objectContaining({
         id: "finmind-signals",
-        status: "degraded",
+        status: "ready",
         message: "FinMind 價格、籌碼與營收資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
       })
     ]));

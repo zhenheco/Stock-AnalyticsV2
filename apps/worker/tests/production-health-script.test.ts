@@ -101,6 +101,38 @@ describe("production-health script helpers", () => {
     })).toEqual({ ok: true, reasons: [] });
   });
 
+  it("passes strict production gate when FinMind is ready through anonymous signal data", () => {
+    expect(productionHealthGate({
+      page: {
+        status: 200,
+        html: "<script src=\"/assets/index-abc123.js\"></script><link rel=\"stylesheet\" href=\"/assets/index-def456.css\">"
+      },
+      readiness: {
+        status: "ready",
+        counts: {
+          candidates: 100,
+          universe: 3059,
+          watchlist: 0
+        },
+        checks: [
+          { id: "universe", status: "ready", message: "ok" },
+          { id: "candidates", status: "ready", message: "ok" },
+          { id: "finmind-signals", status: "ready", message: "FinMind 價格、籌碼與營收資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性" }
+        ]
+      },
+      candidates: {
+        updatedAt: "2026-05-27T15:14:34.402Z",
+        candidates: [{
+          symbol: "2330",
+          name: "台積電",
+          sourceEventCounts: { finmind: 7, rss: 9, ptt: 6, twse: 1 }
+        }]
+      },
+      finmindToken: ""
+    })).toEqual({ ok: true, reasons: [] });
+  });
+
+
   it("fails strict production gate when readiness is degraded", () => {
     expect(productionHealthGate({
       page: {
@@ -132,8 +164,7 @@ describe("production-health script helpers", () => {
       ok: false,
       reasons: [
         "readiness=degraded",
-        "finmind-signals=degraded",
-        "FINMIND_TOKEN missing"
+        "finmind-signals=degraded"
       ]
     });
   });

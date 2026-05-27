@@ -24,4 +24,8 @@ describe("sync-finmind-secret script helpers", () => {
       ]
     })).toBe("READINESS status=degraded candidates=100 universe=3059 finmind-signals=missing message=FINMIND_TOKEN 尚未設定");
   });
+
+  it("summarizes optional token skip without treating it as a hard failure", () => {
+    expect(formatTokenPresence("")).toBe("FINMIND_TOKEN_MISSING_OR_EMPTY");
+  });
 });

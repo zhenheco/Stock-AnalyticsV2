@@ -93,15 +93,15 @@ pnpm check:secrets:ready
 pnpm check:finmind-secret
 ```
 
-After the 1Password item is filled, sync it into Cloudflare and run a production ingestion smoke:
+If the 1Password item is filled, sync it into Cloudflare. Either way, `complete:production` runs the production ingestion smoke and final ready gate:
 
 ```bash
 pnpm sync:finmind-secret
 pnpm complete:production
 ```
 
-Expected final readiness is `finmind-signals=ready` when token-backed ingestion works, or `finmind-signals=degraded` when anonymous limited price/chip/revenue rows are flowing. If the token is still empty, the sync script exits before touching Cloudflare secrets.
-`pnpm complete:production` runs the closeout sequence: strict secret readiness check, production ingestion smoke, FinMind secret sync plus ingestion smoke, then the strict production ready gate. If `FINMIND_TOKEN` is empty, it stops before triggering production ingestion or attempting Cloudflare secret sync.
+Expected final readiness is `finmind-signals=ready` when token-backed ingestion works or when anonymous limited price/chip/revenue rows are flowing. If the token is still empty, the optional sync step skips Cloudflare secret writes.
+`pnpm complete:production` runs the closeout sequence: required secret readiness check, production ingestion smoke, optional FinMind secret sync plus ingestion smoke when a token exists, then the strict production ready gate.
 
 ## Deployment
 
@@ -132,7 +132,7 @@ curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=
 
 `pnpm check:production:smoke` reads `ADMIN_TOKEN` from 1Password, triggers live ingestion, then verifies candidate count plus PTT/RSS/TWSE source runs. It reports counts and statuses only; it does not print raw secrets.
 `pnpm check:production` checks the deployed Pages bundle, Worker readiness, top candidate source contribution counts, and FinMind token presence without printing raw secrets.
-`pnpm check:production:ready` runs the same checks and exits non-zero until all readiness checks, top candidate source counts, Pages assets, and FinMind token presence are ready.
+`pnpm check:production:ready` runs the same checks and exits non-zero until all readiness checks, top candidate source counts, and Pages assets are ready. A missing FinMind token is allowed when anonymous FinMind signal rows are flowing.
 
 ## Deferred
 
