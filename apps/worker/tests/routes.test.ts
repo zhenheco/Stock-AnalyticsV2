@@ -408,16 +408,21 @@ describe("worker routes", () => {
       body: JSON.stringify({
         now: "2026-05-27T03:00:00.000Z",
         sources: {
-          rssXml: "<rss><channel><item><title>台積電 2330 AI 訂單</title><link>https://news.test/a</link><pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate></item></channel></rss>"
+          rssXml: `
+            <rss><channel>
+              <item><title>台積電 2330 AI 訂單</title><link>https://news.test/a</link><pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate></item>
+              <item><title>鴻海 2317 AI 伺服器</title><link>https://news.test/b</link><pubDate>Wed, 27 May 2026 02:20:00 GMT</pubDate></item>
+            </channel></rss>
+          `
         }
       })
     }));
     const body = await response.json() as { candidateCount: number };
 
     expect(response.status).toBe(202);
-    expect(body.candidateCount).toBe(1);
+    expect(body.candidateCount).toBe(2);
     expect(await app.fetch(new Request("https://api.test/api/source-runs")).then((res) => res.json()))
-      .toMatchObject({ runs: [expect.objectContaining({ source: "rss", status: "ok" })] });
+      .toMatchObject({ runs: [expect.objectContaining({ source: "rss", status: "ok", itemCount: 2 })] });
   });
 
   it("runs live ingestion through an admin endpoint when no sources payload is supplied", async () => {

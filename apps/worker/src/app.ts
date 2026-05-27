@@ -1,6 +1,6 @@
 import { D1Repository } from "./repository/d1";
 import type { Repository } from "./repository/types";
-import type { DataReadiness, ReadinessCheck, ReadinessStatus, SourceRun } from "@stock-analytics/shared";
+import { countRssItems, parsePttTitles, type DataReadiness, type ReadinessCheck, type ReadinessStatus, type SourceRun } from "@stock-analytics/shared";
 import { persistSourceEvents, recomputeCandidates, runIngestion, type IngestionSources } from "./ingest";
 import { verifyIngestSignature } from "./security";
 import { fetchLiveSources, type SourceEnv } from "./sources/live";
@@ -439,6 +439,8 @@ function corsHeaders(): Record<string, string> {
 
 function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
   const finmindItemCount = (sources.finmindRows?.length ?? 0) + (sources.finmindStockInfoRows?.length ?? 0);
+  const pttItemCount = sources.pttHtml ? parsePttTitles(sources.pttHtml).length : 0;
+  const rssItemCount = sources.rssXml ? countRssItems(sources.rssXml) : 0;
 
   return [
     ...(sources.pttHtml ? [{
@@ -447,7 +449,7 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       status: "ok" as const,
       startedAt: now,
       finishedAt: now,
-      itemCount: 1
+      itemCount: pttItemCount
     }] : []),
     ...(sources.rssXml ? [{
       id: `rss:${now}`,
@@ -455,7 +457,7 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       status: "ok" as const,
       startedAt: now,
       finishedAt: now,
-      itemCount: 1
+      itemCount: rssItemCount
     }] : []),
     ...(finmindItemCount > 0 ? [{
       id: `finmind:${now}`,
