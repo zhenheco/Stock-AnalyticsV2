@@ -45,7 +45,7 @@ Environment config:
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 - `LLM_CLASSIFIER_ENABLED` - set to `true` to use the Cloudflare Workers AI binding for short-text event classification.
 - `LLM_CLASSIFIER_MODEL` - Workers AI chat model. Defaults to `@cf/meta/llama-3.1-8b-instruct`.
-- `LLM_CLASSIFIER_LIMIT` - maximum non-FinMind events to classify per ingestion or scoring run. Defaults to `20`, capped at `50`.
+- `LLM_CLASSIFIER_LIMIT` - maximum non-FinMind events to classify per ingestion or scoring run. Defaults to `8`, capped at `20` to leave Worker cron timeout headroom.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
 

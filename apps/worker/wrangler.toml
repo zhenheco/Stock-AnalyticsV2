@@ -12,7 +12,7 @@ RSS_FEED_URLS = "https://tw.stock.yahoo.com/rss?category=news"
 PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html"
 LLM_CLASSIFIER_ENABLED = "true"
 LLM_CLASSIFIER_MODEL = "@cf/meta/llama-3.1-8b-instruct"
-LLM_CLASSIFIER_LIMIT = "20"
+LLM_CLASSIFIER_LIMIT = "8"
 
 [ai]
 binding = "AI"

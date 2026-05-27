@@ -76,9 +76,9 @@ function normalizeWorkersAiClassification(classification: LlmClassification): Ll
 export function parseClassifierLimit(value: string | undefined): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    return 20;
+    return 8;
   }
-  return Math.min(Math.max(Math.trunc(parsed), 0), 50);
+  return Math.min(Math.max(Math.trunc(parsed), 0), 20);
 }
 
 export function isClassifierEnabled(value: string | undefined): boolean {

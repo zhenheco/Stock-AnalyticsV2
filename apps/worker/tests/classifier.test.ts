@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorkersAiClassifier } from "../src/classifier";
+import { createWorkersAiClassifier, parseClassifierLimit } from "../src/classifier";
 
 describe("createWorkersAiClassifier", () => {
   it("accepts JSON wrapped in a model code fence", async () => {
@@ -40,5 +40,11 @@ describe("createWorkersAiClassifier", () => {
       tags: ["AI", "供應鏈"],
       reason: "AI 供應鏈事件"
     });
+  });
+
+  it("keeps classifier limits conservative for Worker cron budgets", () => {
+    expect(parseClassifierLimit(undefined)).toBe(8);
+    expect(parseClassifierLimit("200")).toBe(20);
+    expect(parseClassifierLimit("-1")).toBe(0);
   });
 });
