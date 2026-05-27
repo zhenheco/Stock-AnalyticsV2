@@ -1,9 +1,10 @@
-import type { Candidate, EventRecord, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, SourceRun, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 export class MemoryRepository implements Repository {
   private candidates: Candidate[] = [];
   private events: EventRecord[] = [];
+  private sourceRuns: SourceRun[] = [];
   private watchlist: WatchlistEntry[] = [];
 
   async listCandidates(): Promise<Candidate[]> {
@@ -30,6 +31,18 @@ export class MemoryRepository implements Repository {
       byId.set(event.id, event);
     }
     this.events = [...byId.values()];
+  }
+
+  async listSourceRuns(): Promise<SourceRun[]> {
+    return [...this.sourceRuns].sort((left, right) => right.startedAt.localeCompare(left.startedAt)).slice(0, 50);
+  }
+
+  async saveSourceRuns(runs: SourceRun[]): Promise<void> {
+    const byId = new Map(this.sourceRuns.map((run) => [run.id, run]));
+    for (const run of runs) {
+      byId.set(run.id, run);
+    }
+    this.sourceRuns = [...byId.values()];
   }
 
   async listWatchlist(): Promise<WatchlistEntry[]> {

@@ -1,10 +1,38 @@
 import type { WatchlistEntry } from "@stock-analytics/shared";
+import { useState } from "react";
 
 interface WatchlistProps {
   entries: WatchlistEntry[];
+  onAdd?: (input: { symbol: string; name: string; adminToken: string }) => Promise<void>;
 }
 
-export function Watchlist({ entries }: WatchlistProps) {
+export function Watchlist({ entries, onAdd }: WatchlistProps) {
+  const [symbol, setSymbol] = useState("");
+  const [name, setName] = useState("");
+  const [adminToken, setAdminToken] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+    return window.localStorage.getItem("stock-analytics-admin-token") ?? "";
+  });
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("stock-analytics-admin-token", adminToken);
+    }
+    try {
+      await onAdd?.({ symbol: symbol.trim(), name: name.trim(), adminToken });
+      setSymbol("");
+      setName("");
+      setMessage("已加入追蹤清單");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "新增失敗");
+    }
+  }
+
   return (
     <main className="watchlist-page">
       <header className="page-header compact">
@@ -14,6 +42,23 @@ export function Watchlist({ entries }: WatchlistProps) {
         </div>
         <a className="ghost-button" href="/">回雷達</a>
       </header>
+
+      <form className="watchlist-form" onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="watch-symbol">股票代號</label>
+          <input id="watch-symbol" value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="2330" required />
+        </div>
+        <div>
+          <label htmlFor="watch-name">公司名稱</label>
+          <input id="watch-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="台積電" required />
+        </div>
+        <div>
+          <label htmlFor="watch-token">管理 Token</label>
+          <input id="watch-token" type="password" value={adminToken} onChange={(event) => setAdminToken(event.target.value)} placeholder="x-admin-token" required />
+        </div>
+        <button type="submit">新增追蹤</button>
+        {message ? <p className="form-message">{message}</p> : null}
+      </form>
 
       <section className="watchlist-grid">
         {entries.length === 0 ? (

@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, SourceRun, WatchlistEntry } from "@stock-analytics/shared";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -24,8 +24,23 @@ export async function fetchWatchlist(): Promise<{ watchlist: WatchlistEntry[] }>
   return fetchJson<{ watchlist: WatchlistEntry[] }>("/api/watchlist");
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`);
+export async function addWatchlistEntry(input: { symbol: string; name: string; adminToken: string }): Promise<WatchlistEntry> {
+  return fetchJson<WatchlistEntry>("/api/watchlist", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-token": input.adminToken
+    },
+    body: JSON.stringify({ symbol: input.symbol, name: input.name })
+  });
+}
+
+export async function fetchSourceRuns(): Promise<{ runs: SourceRun[] }> {
+  return fetchJson<{ runs: SourceRun[] }>("/api/source-runs");
+}
+
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
   }

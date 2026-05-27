@@ -1,4 +1,5 @@
 export type SourceKind = "ptt" | "rss" | "finmind";
+export type SourceRunStatus = "ok" | "partial" | "failed";
 
 export interface SourceEvent {
   source: SourceKind;
@@ -39,6 +40,16 @@ export interface WatchlistEntry {
   symbol: string;
   name: string;
   addedAt: string;
+}
+
+export interface SourceRun {
+  id: string;
+  source: SourceKind;
+  status: SourceRunStatus;
+  startedAt: string;
+  finishedAt: string;
+  itemCount: number;
+  message?: string;
 }
 
 export interface LlmClassification {

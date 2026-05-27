@@ -20,14 +20,16 @@ export default {
       throw new Error("DB binding is required");
     }
     const now = new Date().toISOString();
+    const liveResult = await fetchLiveSources({
+      now,
+      env,
+      fetcher: env.__fetcher
+    });
     await runIngestion({
       repo,
       now,
-      sources: await fetchLiveSources({
-        now,
-        env,
-        fetcher: env.__fetcher
-      })
+      sources: liveResult.sources
     });
+    await repo.saveSourceRuns(liveResult.runs);
   }
 };

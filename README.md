@@ -15,6 +15,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 - `GET /api/candidates`
 - `GET /api/stocks/:symbol/research`
 - `GET /api/watchlist`
+- `GET /api/source-runs`
 - `POST /api/watchlist` with `x-admin-token`
 - `POST /api/admin/run-ingest` with `x-admin-token`
 - `POST /api/admin/run-score` with `x-admin-token`
@@ -38,6 +39,12 @@ Environment config:
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
+
+## Dashboard
+
+- Radar page shows candidate stocks and source health.
+- Stock detail page shows event evidence and links out to TradingView instead of storing full historical price data.
+- Watchlist page includes a personal add form. The admin token is sent as `x-admin-token` and cached in browser local storage for convenience.
 
 ## Development
 

@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, SourceKind, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, SourceKind, SourceRun, SourceRunStatus, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 interface D1Database {
@@ -70,6 +70,35 @@ export class D1Repository implements Repository {
     )));
   }
 
+  async listSourceRuns(): Promise<SourceRun[]> {
+    const rows = await this.db.prepare("SELECT * FROM source_runs ORDER BY started_at DESC LIMIT 50").all<SourceRunRow>();
+    return (rows.results ?? []).map((row) => ({
+      id: row.id,
+      source: row.source,
+      status: row.status,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      itemCount: row.item_count,
+      ...(row.message ? { message: row.message } : {})
+    }));
+  }
+
+  async saveSourceRuns(runs: SourceRun[]): Promise<void> {
+    await this.db.batch(runs.map((run) => this.db.prepare(`
+      INSERT OR REPLACE INTO source_runs
+        (id, source, status, started_at, finished_at, item_count, message)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      run.id,
+      run.source,
+      run.status,
+      run.startedAt,
+      run.finishedAt,
+      run.itemCount,
+      run.message ?? null
+    )));
+  }
+
   async listWatchlist(): Promise<WatchlistEntry[]> {
     const rows = await this.db.prepare("SELECT symbol, name, added_at FROM watchlist ORDER BY symbol").all<WatchlistRow>();
     return (rows.results ?? []).map((row) => ({ symbol: row.symbol, name: row.name, addedAt: row.added_at }));
@@ -114,6 +143,16 @@ interface WatchlistRow {
   symbol: string;
   name: string;
   added_at: string;
+}
+
+interface SourceRunRow {
+  id: string;
+  source: SourceKind;
+  status: SourceRunStatus;
+  started_at: string;
+  finished_at: string;
+  item_count: number;
+  message: string | null;
 }
 
 function rowToCandidate(row: CandidateRow): Candidate {

@@ -30,6 +30,29 @@ describe("worker routes", () => {
     expect(body.updatedAt).toBe("2026-05-27T02:00:00.000Z");
   });
 
+  it("returns recent source health runs", async () => {
+    const repo = new MemoryRepository();
+    await repo.saveSourceRuns([
+      {
+        id: "rss:2026-05-27T05:00:00.000Z",
+        source: "rss",
+        status: "ok",
+        startedAt: "2026-05-27T05:00:00.000Z",
+        finishedAt: "2026-05-27T05:00:01.000Z",
+        itemCount: 3
+      }
+    ]);
+    const app = createApp({ repo, adminToken: "secret" });
+
+    const response = await app.fetch(new Request("https://api.test/api/source-runs"));
+    const body = await response.json() as { runs: unknown[] };
+
+    expect(response.status).toBe(200);
+    expect(body.runs).toEqual([
+      expect.objectContaining({ source: "rss", status: "ok", itemCount: 3 })
+    ]);
+  });
+
   it("requires admin token to mutate watchlist", async () => {
     const app = createApp({ repo: new MemoryRepository(), adminToken: "secret" });
 
@@ -73,6 +96,8 @@ describe("worker routes", () => {
 
     expect(response.status).toBe(202);
     expect(body.candidateCount).toBe(1);
+    expect(await app.fetch(new Request("https://api.test/api/source-runs")).then((res) => res.json()))
+      .toMatchObject({ runs: [expect.objectContaining({ source: "rss", status: "ok" })] });
   });
 
   it("runs live ingestion through an admin endpoint when no sources payload is supplied", async () => {

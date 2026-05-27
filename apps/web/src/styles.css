@@ -232,6 +232,48 @@ h2 {
   padding: 28px;
 }
 
+.source-health {
+  margin-bottom: 22px;
+}
+
+.compact-title {
+  margin-bottom: 10px;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.health-card {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 12px;
+}
+
+.health-card.ok {
+  border-left-color: var(--green);
+}
+
+.health-card.partial {
+  border-left-color: var(--amber);
+}
+
+.health-card.failed {
+  border-left-color: var(--red);
+}
+
+.health-card span,
+.health-card small,
+.health-card p {
+  color: var(--muted);
+  margin: 0;
+}
+
 .empty-kicker {
   color: var(--green);
   font-weight: 800;
@@ -318,6 +360,53 @@ h2 {
   gap: 8px;
 }
 
+.watchlist-form {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) minmax(160px, 1fr) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 22px;
+  padding: 16px 0;
+}
+
+.watchlist-form div {
+  display: grid;
+  gap: 6px;
+}
+
+.watchlist-form label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.watchlist-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111414;
+  color: #f1efe4;
+  padding: 10px 11px;
+  font: inherit;
+}
+
+.watchlist-form button {
+  border: 0;
+  border-radius: 6px;
+  background: var(--green);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 11px 14px;
+}
+
+.form-message {
+  grid-column: 1 / -1;
+  color: var(--amber);
+  margin: 0;
+}
+
 .watch-row {
   grid-template-columns: 120px minmax(0, 1fr) auto;
   text-decoration: none;
@@ -338,7 +427,8 @@ h2 {
   }
 
   .timeline li,
-  .watch-row {
+  .watch-row,
+  .watchlist-form {
     grid-template-columns: 1fr;
   }
 }

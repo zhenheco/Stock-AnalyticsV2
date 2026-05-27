@@ -1,4 +1,4 @@
-import type { FinMindRow } from "@stock-analytics/shared";
+import { parsePttTitles, parseRssItems, type FinMindRow, type SourceKind, type SourceRun } from "@stock-analytics/shared";
 import type { IngestionSources } from "../ingest";
 
 export interface SourceEnv {
@@ -14,6 +14,11 @@ export interface FetchLiveSourcesInput {
   fetcher?: typeof fetch;
 }
 
+export interface LiveSourceResult {
+  sources: IngestionSources;
+  runs: SourceRun[];
+}
+
 interface FinMindResponse {
   data?: FinMindRow[];
 }
@@ -22,30 +27,40 @@ const FINMIND_ENDPOINT = "https://api.finmindtrade.com/api/v4/data";
 const DEFAULT_PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html";
 const DEFAULT_RSS_FEED_URL = "https://tw.stock.yahoo.com/rss?category=news";
 
-export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<IngestionSources> {
+export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<LiveSourceResult> {
   const fetcher = input.fetcher ?? fetch;
-  const [pttHtml, rssXml, finmindRows] = await Promise.all([
-    fetchText(fetcher, input.env.PTT_STOCK_URL ?? DEFAULT_PTT_STOCK_URL, {
+  const [ptt, rss, finmind] = await Promise.all([
+    fetchTextSource("ptt", fetcher, input.env.PTT_STOCK_URL ?? DEFAULT_PTT_STOCK_URL, input.now, {
       headers: new Headers({
         cookie: "over18=1",
         "user-agent": "StockAnalyticsV2/0.1"
-      })
+      }),
+      countItems: (body) => parsePttTitles(body).length
     }),
-    fetchText(fetcher, input.env.RSS_FEED_URL ?? DEFAULT_RSS_FEED_URL),
+    fetchTextSource("rss", fetcher, input.env.RSS_FEED_URL ?? DEFAULT_RSS_FEED_URL, input.now, {
+      countItems: (body) => parseRssItems(body).length
+    }),
     fetchFinMindRows(fetcher, input.env, input.now)
   ]);
 
   return {
-    ...(pttHtml ? { pttHtml } : {}),
-    ...(rssXml ? { rssXml } : {}),
-    ...(finmindRows.length > 0 ? { finmindRows } : {})
+    sources: {
+      ...(ptt.body ? { pttHtml: ptt.body } : {}),
+      ...(rss.body ? { rssXml: rss.body } : {}),
+      ...(finmind.rows.length > 0 ? { finmindRows: finmind.rows } : {})
+    },
+    runs: [ptt.run, rss.run, finmind.run]
   };
 }
 
-async function fetchFinMindRows(fetcher: typeof fetch, env: SourceEnv, now: string): Promise<FinMindRow[]> {
+async function fetchFinMindRows(fetcher: typeof fetch, env: SourceEnv, now: string): Promise<{ rows: FinMindRow[]; run: SourceRun }> {
+  const startedAt = now;
   const symbols = parseSymbols(env.FINMIND_SYMBOLS);
   if (!env.FINMIND_TOKEN || symbols.length === 0) {
-    return [];
+    return {
+      rows: [],
+      run: buildRun("finmind", startedAt, "partial", 0, "FINMIND_TOKEN or FINMIND_SYMBOLS not configured")
+    };
   }
 
   const rows = await Promise.all(symbols.map(async (symbol) => {
@@ -64,15 +79,32 @@ async function fetchFinMindRows(fetcher: typeof fetch, env: SourceEnv, now: stri
     return body.data ?? [];
   }));
 
-  return rows.flat();
+  const flatRows = rows.flat();
+  return {
+    rows: flatRows,
+    run: buildRun("finmind", startedAt, flatRows.length > 0 ? "ok" : "partial", flatRows.length, flatRows.length > 0 ? undefined : "No FinMind rows returned")
+  };
 }
 
-async function fetchText(fetcher: typeof fetch, url: string, init?: RequestInit): Promise<string | undefined> {
+async function fetchTextSource(
+  source: SourceKind,
+  fetcher: typeof fetch,
+  url: string,
+  now: string,
+  options: RequestInit & { countItems: (body: string) => number }
+): Promise<{ body?: string; run: SourceRun }> {
+  const { countItems, ...init } = options;
   const response = await safeFetch(fetcher, url, init);
   if (!response?.ok) {
-    return undefined;
+    return {
+      run: buildRun(source, now, "failed", 0, response ? `HTTP ${response.status}` : "Fetch failed")
+    };
   }
-  return await response.text();
+  const body = await response.text();
+  return {
+    body,
+    run: buildRun(source, now, "ok", countItems(body))
+  };
 }
 
 async function safeFetch(fetcher: typeof fetch, input: RequestInfo | URL, init?: RequestInit): Promise<Response | undefined> {
@@ -88,4 +120,22 @@ function parseSymbols(value: string | undefined): string[] {
     .split(",")
     .map((symbol) => symbol.trim())
     .filter((symbol) => /^\d{4,6}[A-Z]?$/.test(symbol));
+}
+
+function buildRun(
+  source: SourceKind,
+  startedAt: string,
+  status: SourceRun["status"],
+  itemCount: number,
+  message?: string
+): SourceRun {
+  return {
+    id: `${source}:${startedAt}`,
+    source,
+    status,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    itemCount,
+    ...(message ? { message } : {})
+  };
 }

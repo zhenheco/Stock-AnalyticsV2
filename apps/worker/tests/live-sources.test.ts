@@ -4,7 +4,7 @@ import { fetchLiveSources } from "../src/sources/live";
 describe("fetchLiveSources", () => {
   it("fetches configured PTT, RSS, and FinMind sources", async () => {
     const requested: string[] = [];
-    const sources = await fetchLiveSources({
+    const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",
       env: {
         FINMIND_TOKEN: "token",
@@ -31,14 +31,19 @@ describe("fetchLiveSources", () => {
       }
     });
 
-    expect(sources.finmindRows).toHaveLength(2);
-    expect(sources.rssXml).toContain("台積電");
-    expect(sources.pttHtml).toContain("2330");
+    expect(result.sources.finmindRows).toHaveLength(2);
+    expect(result.sources.rssXml).toContain("台積電");
+    expect(result.sources.pttHtml).toContain("2330");
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 2 }),
+      expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 }),
+      expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
+    ]));
     expect(requested.some((entry) => entry.includes("Bearer token"))).toBe(true);
   });
 
   it("returns partial source data when one source fails", async () => {
-    const sources = await fetchLiveSources({
+    const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",
       env: {
         RSS_FEED_URL: "https://rss.test/feed.xml",
@@ -53,8 +58,12 @@ describe("fetchLiveSources", () => {
       }
     });
 
-    expect(sources.rssXml).toBeUndefined();
-    expect(sources.pttHtml).toContain("台積電");
+    expect(result.sources.rssXml).toBeUndefined();
+    expect(result.sources.pttHtml).toContain("台積電");
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "rss", status: "failed", itemCount: 0 }),
+      expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
+    ]));
   });
 });
 

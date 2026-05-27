@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, SourceRun, WatchlistEntry } from "@stock-analytics/shared";
 
 export interface Repository {
   listCandidates(): Promise<Candidate[]>;
@@ -6,6 +6,8 @@ export interface Repository {
   listEvents(): Promise<EventRecord[]>;
   listEventsForSymbol(symbol: string): Promise<EventRecord[]>;
   saveEvents(events: EventRecord[]): Promise<void>;
+  listSourceRuns(): Promise<SourceRun[]>;
+  saveSourceRuns(runs: SourceRun[]): Promise<void>;
   listWatchlist(): Promise<WatchlistEntry[]>;
   addWatchlist(entry: Omit<WatchlistEntry, "addedAt">): Promise<WatchlistEntry>;
 }

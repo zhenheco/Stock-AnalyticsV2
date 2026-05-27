@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Candidate, EventRecord, WatchlistEntry } from "@stock-analytics/shared";
-import { fetchCandidates, fetchStockResearch, fetchWatchlist } from "./api";
+import type { Candidate, EventRecord, SourceRun, WatchlistEntry } from "@stock-analytics/shared";
+import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchWatchlist } from "./api";
 import { RadarTable } from "./components/RadarTable";
+import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
 import { Watchlist } from "./pages/Watchlist";
 
@@ -26,16 +27,17 @@ export function App() {
 }
 
 function RadarRoute() {
-  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null }>>({ status: "loading" });
+  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[] }>>({ status: "loading" });
 
   useEffect(() => {
-    fetchCandidates()
-      .then((data) => setState({ status: "ready", data }))
+    Promise.all([fetchCandidates(), fetchSourceRuns()])
+      .then(([candidateData, healthData]) => setState({ status: "ready", data: { ...candidateData, runs: healthData.runs } }))
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
 
   const candidates = state.status === "ready" ? state.data.candidates : [];
   const updatedAt = state.status === "ready" ? state.data.updatedAt : null;
+  const runs = state.status === "ready" ? state.data.runs : [];
 
   return (
     <main>
@@ -66,7 +68,12 @@ function RadarRoute() {
         </div>
         {state.status === "loading" ? <SkeletonTable /> : null}
         {state.status === "error" ? <ErrorPanel message={state.message} /> : null}
-        {state.status === "ready" ? <RadarTable candidates={candidates} /> : null}
+        {state.status === "ready" ? (
+          <>
+            <SourceHealth runs={runs} />
+            <RadarTable candidates={candidates} />
+          </>
+        ) : null}
       </section>
     </main>
   );
@@ -99,10 +106,21 @@ function WatchlistRoute() {
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
 
+  async function handleAdd(input: { symbol: string; name: string; adminToken: string }) {
+    const entry = await addWatchlistEntry(input);
+    setState((current) => {
+      if (current.status !== "ready") {
+        return current;
+      }
+      const withoutDuplicate = current.data.watchlist.filter((item) => item.symbol !== entry.symbol);
+      return { status: "ready", data: { watchlist: [...withoutDuplicate, entry].sort((left, right) => left.symbol.localeCompare(right.symbol)) } };
+    });
+  }
+
   return (
     <>
       {state.status === "error" ? <ErrorPanel message={state.message} /> : null}
-      <Watchlist entries={state.status === "ready" ? state.data.watchlist : []} />
+      <Watchlist entries={state.status === "ready" ? state.data.watchlist : []} onAdd={handleAdd} />
     </>
   );
 }

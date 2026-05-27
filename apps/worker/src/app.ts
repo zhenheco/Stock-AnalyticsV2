@@ -57,6 +57,10 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     });
   }
 
+  if (url.pathname === "/api/source-runs" && request.method === "GET") {
+    return json({ runs: await options.repo.listSourceRuns() });
+  }
+
   const stockMatch = url.pathname.match(/^\/api\/stocks\/([^/]+)\/research$/);
   if (stockMatch?.[1] && request.method === "GET") {
     const symbol = stockMatch[1].toUpperCase();
@@ -94,15 +98,17 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     }
 
     const now = body.now ?? new Date().toISOString();
+    const liveResult = body.sources ? undefined : await fetchLiveSources({
+      now,
+      env: options.sourceEnv ?? {},
+      fetcher: options.fetcher
+    });
     await runIngestion({
       repo: options.repo,
       now,
-      sources: body.sources ?? await fetchLiveSources({
-        now,
-        env: options.sourceEnv ?? {},
-        fetcher: options.fetcher
-      })
+      sources: body.sources ?? liveResult?.sources ?? {}
     });
+    await options.repo.saveSourceRuns(liveResult?.runs ?? deriveFixtureSourceRuns(body.sources ?? {}, now));
     return json({ candidateCount: (await options.repo.listCandidates()).length }, 202);
   }
 
@@ -221,4 +227,33 @@ function corsHeaders(): Record<string, string> {
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type,x-admin-token"
   };
+}
+
+function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
+  return [
+    ...(sources.pttHtml ? [{
+      id: `ptt:${now}`,
+      source: "ptt" as const,
+      status: "ok" as const,
+      startedAt: now,
+      finishedAt: now,
+      itemCount: 1
+    }] : []),
+    ...(sources.rssXml ? [{
+      id: `rss:${now}`,
+      source: "rss" as const,
+      status: "ok" as const,
+      startedAt: now,
+      finishedAt: now,
+      itemCount: 1
+    }] : []),
+    ...(sources.finmindRows ? [{
+      id: `finmind:${now}`,
+      source: "finmind" as const,
+      status: "ok" as const,
+      startedAt: now,
+      finishedAt: now,
+      itemCount: sources.finmindRows.length
+    }] : [])
+  ];
 }
