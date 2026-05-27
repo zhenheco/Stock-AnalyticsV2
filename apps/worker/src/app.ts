@@ -28,6 +28,7 @@ export interface WorkerEnv {
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   PTT_STOCK_URL?: string;
+  PTT_STOCK_PAGES?: string;
   AI?: WorkersAiBinding;
   LLM_CLASSIFIER_ENABLED?: string;
   LLM_CLASSIFIER_MODEL?: string;
@@ -271,20 +272,20 @@ function checkSocialEvents(latestRuns: SourceRun[]): ReadinessCheck {
 function checkFinMindSignals(latestRuns: SourceRun[]): ReadinessCheck {
   const finmind = latestRuns.find((run) => run.source === "finmind");
   if (finmind?.status === "ok") {
-    return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "ready", message: "FinMind 價格與籌碼資料已接通" };
+    return { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "ready", message: "FinMind 價格、籌碼與營收資料已接通" };
   }
   if (finmind?.message?.includes("anonymous limited price/chip")) {
     return {
       id: "finmind-signals",
-      label: "FinMind 價格/籌碼",
+      label: "FinMind 價格/籌碼/營收",
       status: "degraded",
-      message: "FinMind 價格與籌碼資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
+      message: "FinMind 價格、籌碼與營收資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
     };
   }
   if (finmind?.message?.includes("FINMIND_TOKEN")) {
-    return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格與籌碼資料未進入事件管線" };
+    return { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格、籌碼與營收資料未進入事件管線" };
   }
-  return { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "degraded", message: finmind?.message ?? "FinMind 尚未完成最近一次同步" };
+  return { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "degraded", message: finmind?.message ?? "FinMind 尚未完成最近一次同步" };
 }
 
 function latestRunsBySource(runs: SourceRun[]): SourceRun[] {

@@ -210,7 +210,7 @@ describe("normalizeFinMindRows", () => {
 
   it("normalizes institutional buy/sell rows into chip events", () => {
     expect(normalizeFinMindRows([
-      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 } as any
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 }
     ], "2026-05-27T05:00:00.000Z")).toEqual([
       {
         source: "finmind",
@@ -235,7 +235,7 @@ describe("normalizeFinMindRows", () => {
         Return: 0,
         TodayBalance: 12000,
         YesBalance: 11200
-      } as any
+      }
     ], "2026-05-27T05:00:00.000Z")).toEqual([
       {
         source: "finmind",
@@ -248,9 +248,31 @@ describe("normalizeFinMindRows", () => {
     ]);
   });
 
+  it("normalizes monthly revenue rows into fundamental events", () => {
+    expect(normalizeFinMindRows([
+      {
+        stock_id: "2330",
+        stock_name: "台積電",
+        date: "2026-05-01",
+        revenue: 236021000000,
+        revenue_month: 4,
+        revenue_year: 2026
+      }
+    ], "2026-05-27T05:00:00.000Z")).toEqual([
+      {
+        source: "finmind",
+        title: "2330 台積電 2026/4 月營收 2360.2 億元",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockMonthRevenue&data_id=2330",
+        publishedAt: "2026-05-01T00:00:00.000Z",
+        engagement: 2360,
+        symbols: ["2330"]
+      }
+    ]);
+  });
+
   it("skips unsupported FinMind rows instead of creating empty price events", () => {
     expect(normalizeFinMindRows([
-      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "MarginPurchaseCashRepayment", buy: 0, sell: 0 } as any
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "MarginPurchaseCashRepayment", buy: 0, sell: 0 }
     ], "2026-05-27T05:00:00.000Z")).toEqual([]);
   });
 });

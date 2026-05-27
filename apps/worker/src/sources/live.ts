@@ -138,14 +138,15 @@ async function fetchFinMindSources(
   const startedAt = now;
   const symbols = mergeSymbols(parseSymbols(env.FINMIND_SYMBOLS), dynamicSymbols, parseSymbolLimit(env.FINMIND_DYNAMIC_SYMBOL_LIMIT));
 
-  const [stockInfoRows, priceRows, institutionalRows, marginRows] = await Promise.all([
+  const [stockInfoRows, priceRows, institutionalRows, marginRows, monthlyRevenueRows] = await Promise.all([
     fetchFinMindStockInfoRows(fetcher, env.FINMIND_TOKEN),
     fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockPrice"),
     fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockInstitutionalInvestorsBuySell"),
-    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMarginPurchaseShortSale")
+    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMarginPurchaseShortSale"),
+    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMonthRevenue", revenueStartDate(now))
   ]);
 
-  const flatRows = [...priceRows, ...institutionalRows, ...marginRows].flat();
+  const flatRows = [...priceRows, ...institutionalRows, ...marginRows, ...monthlyRevenueRows].flat();
   const itemCount = flatRows.length + stockInfoRows.length;
   const missingSignalConfig = symbols.length === 0;
   const anonymousSignalRows = !env.FINMIND_TOKEN && flatRows.length > 0;
@@ -158,9 +159,9 @@ async function fetchFinMindSources(
       itemCount > 0 && !missingSignalConfig && !anonymousSignalRows ? "ok" : "partial",
       itemCount,
       missingSignalConfig
-        ? "FINMIND_SYMBOLS not configured for price/chip data"
+        ? "FINMIND_SYMBOLS not configured for price/chip/revenue data"
         : anonymousSignalRows
-          ? "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+          ? "FINMIND_TOKEN not configured; using anonymous limited price/chip/revenue data"
           : itemCount > 0 ? undefined : "No FinMind rows returned"
     )
   };
@@ -186,6 +187,8 @@ async function fetchFinMindRowsByDataset(
   symbols: string[],
   now: string,
   dataset: "TaiwanStockPrice" | "TaiwanStockInstitutionalInvestorsBuySell" | "TaiwanStockMarginPurchaseShortSale"
+    | "TaiwanStockMonthRevenue",
+  startDate = now.slice(0, 10)
 ): Promise<FinMindRow[][]> {
   if (symbols.length === 0) {
     return [];
@@ -195,7 +198,7 @@ async function fetchFinMindRowsByDataset(
     const url = new URL(FINMIND_ENDPOINT);
     url.searchParams.set("dataset", dataset);
     url.searchParams.set("data_id", symbol);
-    url.searchParams.set("start_date", now.slice(0, 10));
+    url.searchParams.set("start_date", startDate);
 
     const response = await safeFetch(fetcher, url.toString(), {
       ...(token ? { headers: new Headers({ authorization: `Bearer ${token}` }) } : {})
@@ -299,6 +302,15 @@ function parseRssUrls(env: SourceEnv): string[] {
     .map((url) => url.trim())
     .filter((url) => url.startsWith("https://"));
   return urls.length > 0 ? urls : [DEFAULT_RSS_FEED_URL];
+}
+
+function revenueStartDate(now: string): string {
+  const parsed = new Date(now);
+  if (Number.isNaN(parsed.getTime())) {
+    return now.slice(0, 10);
+  }
+  parsed.setUTCDate(parsed.getUTCDate() - 75);
+  return parsed.toISOString().slice(0, 10);
 }
 
 function extractPttPreviousPageUrl(html: string, currentUrl: string): string | undefined {

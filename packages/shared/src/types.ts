@@ -101,6 +101,9 @@ export interface FinMindRow {
   YesBalance?: number;
   close?: number;
   Trading_Volume?: number;
+  revenue?: number;
+  revenue_month?: number;
+  revenue_year?: number;
 }
 
 export interface FinMindStockInfoRow {

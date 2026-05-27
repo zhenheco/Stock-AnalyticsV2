@@ -58,14 +58,14 @@ describe("SourceHealth", () => {
     const run = sourceRun({
       source: "finmind",
       status: "partial",
-      message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip data"
+      message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip/revenue data"
     });
 
-    expect(sourceRunAdvice(run)).toBe("FinMind token 尚未設定，價格與籌碼資料暫停；股票主檔仍會更新。");
+    expect(sourceRunAdvice(run)).toBe("FinMind token 尚未設定，價格、籌碼與營收資料暫停；股票主檔仍會更新。");
 
     const html = renderToString(<SourceHealth runs={[run]} />);
     expect(html).toContain("FinMind token 尚未設定");
-    expect(html).toContain("價格與籌碼資料暫停");
+    expect(html).toContain("價格、籌碼與營收資料暫停");
   });
 
   it("translates anonymous FinMind signal mode without saying price data is paused", () => {
@@ -73,14 +73,14 @@ describe("SourceHealth", () => {
       source: "finmind",
       status: "partial",
       itemCount: 3,
-      message: "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+      message: "FINMIND_TOKEN not configured; using anonymous limited price/chip/revenue data"
     });
 
-    expect(sourceRunAdvice(run)).toBe("FinMind 價格與籌碼已用免 token 降級模式接通；設定 token 可提高額度穩定性。");
+    expect(sourceRunAdvice(run)).toBe("FinMind 價格、籌碼與營收已用免 token 降級模式接通；設定 token 可提高額度穩定性。");
 
     const html = renderToString(<SourceHealth runs={[run]} />);
     expect(html).toContain("免 token 降級模式接通");
-    expect(html).not.toContain("價格與籌碼資料暫停");
+    expect(html).not.toContain("價格、籌碼與營收資料暫停");
   });
 });
 

@@ -14,13 +14,13 @@ describe("DataReadinessPanel", () => {
       },
       checks: [
         { id: "social-events", label: "社群/時事", status: "ready", message: "PTT 與 RSS 來源最近一次同步正常" },
-        { id: "finmind-signals", label: "FinMind 價格/籌碼", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格與籌碼資料未進入事件管線" }
+        { id: "finmind-signals", label: "FinMind 價格/籌碼/營收", status: "missing", message: "FINMIND_TOKEN 尚未設定，價格、籌碼與營收資料未進入事件管線" }
       ]
     }} />);
 
     expect(html).toContain("資料接線狀態");
     expect(html).toContain("降級");
-    expect(html).toContain("FinMind 價格/籌碼");
+    expect(html).toContain("FinMind 價格/籌碼/營收");
     expect(html).toContain("FINMIND_TOKEN 尚未設定");
   });
 });

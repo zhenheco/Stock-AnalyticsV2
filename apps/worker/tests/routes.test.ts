@@ -54,7 +54,7 @@ describe("worker routes", () => {
     ]);
   });
 
-  it("returns data readiness with a FinMind price/chip gap when token-backed rows are missing", async () => {
+  it("returns data readiness with a FinMind price/chip/revenue gap when token-backed rows are missing", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
       symbol: String(1000 + index),
@@ -81,7 +81,7 @@ describe("worker routes", () => {
         source: "finmind",
         status: "partial",
         itemCount: 4114,
-        message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip data"
+        message: "FINMIND_TOKEN or FINMIND_SYMBOLS not configured for price/chip/revenue data"
       })
     ]);
     const app = createApp({ repo, adminToken: "secret" });
@@ -99,7 +99,7 @@ describe("worker routes", () => {
     ]));
   });
 
-  it("marks anonymous FinMind price and chip data as degraded instead of missing", async () => {
+  it("marks anonymous FinMind price, chip, and revenue data as degraded instead of missing", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
       symbol: String(1000 + index),
@@ -126,7 +126,7 @@ describe("worker routes", () => {
         source: "finmind",
         status: "partial",
         itemCount: 3,
-        message: "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+        message: "FINMIND_TOKEN not configured; using anonymous limited price/chip/revenue data"
       })
     ]);
     const app = createApp({ repo, adminToken: "secret" });
@@ -140,7 +140,7 @@ describe("worker routes", () => {
       expect.objectContaining({
         id: "finmind-signals",
         status: "degraded",
-        message: "FinMind 價格與籌碼資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
+        message: "FinMind 價格、籌碼與營收資料已用免 token 降級模式接通；設定 FINMIND_TOKEN 可提高額度穩定性"
       })
     ]));
   });

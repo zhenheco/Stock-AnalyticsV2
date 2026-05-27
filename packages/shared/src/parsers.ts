@@ -77,6 +77,21 @@ export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEve
     }
     const name = row.stock_name ?? symbol;
 
+    if (isMonthlyRevenueRow(row)) {
+      const revenueInHundredMillion = Number(row.revenue) / 100000000;
+      const revenueText = formatNumber(revenueInHundredMillion);
+      const revenueMonth = row.revenue_year && row.revenue_month ? `${row.revenue_year}/${row.revenue_month}` : "最新";
+
+      return [{
+        source: "finmind" as const,
+        title: `${symbol} ${name} ${revenueMonth} 月營收 ${revenueText} 億元`,
+        url: finMindUrl("TaiwanStockMonthRevenue", symbol),
+        publishedAt: parseFinMindDate(row.date, now),
+        engagement: Math.round(revenueInHundredMillion),
+        symbols: [symbol]
+      }];
+    }
+
     if (isMarginRow(row)) {
       const delta = marginDelta(row);
       const label = translateMarginName(row.name);
@@ -205,6 +220,10 @@ function isMarginRow(row: FinMindRow): boolean {
   return ["MarginPurchase", "ShortSale", "MarginPurchaseMoney"].includes(row.name ?? "");
 }
 
+function isMonthlyRevenueRow(row: FinMindRow): boolean {
+  return finiteNumber(row.revenue);
+}
+
 function marginDelta(row: FinMindRow): number {
   if (finiteNumber(row.TodayBalance) && finiteNumber(row.YesBalance)) {
     return Number(row.TodayBalance) - Number(row.YesBalance);
@@ -214,6 +233,18 @@ function marginDelta(row: FinMindRow): number {
 
 function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function parseFinMindDate(value: string | undefined, fallback: string): string {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+}
+
+function formatNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 function translateInstitutionName(value: string | undefined): string {

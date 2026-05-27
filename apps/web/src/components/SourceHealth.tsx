@@ -58,10 +58,10 @@ export function latestRunsBySource(runs: SourceRun[]): SourceRun[] {
 
 export function sourceRunAdvice(run: SourceRun): string | null {
   if (run.source === "finmind" && run.status === "partial" && run.message?.includes("anonymous limited price/chip")) {
-    return "FinMind 價格與籌碼已用免 token 降級模式接通；設定 token 可提高額度穩定性。";
+    return "FinMind 價格、籌碼與營收已用免 token 降級模式接通；設定 token 可提高額度穩定性。";
   }
   if (run.source === "finmind" && run.status === "partial" && run.message?.includes("FINMIND_TOKEN")) {
-    return "FinMind token 尚未設定，價格與籌碼資料暫停；股票主檔仍會更新。";
+    return "FinMind token 尚未設定，價格、籌碼與營收資料暫停；股票主檔仍會更新。";
   }
   if (run.source === "rss" && run.status !== "ok") {
     return "RSS 來源暫時不完整，系統會保留已取得內容並在下一次排程重試。";

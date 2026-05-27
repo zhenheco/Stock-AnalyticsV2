@@ -26,6 +26,15 @@ describe("fetchLiveSources", () => {
         if (url.includes("TaiwanStockInstitutionalInvestorsBuySell") || url.includes("TaiwanStockMarginPurchaseShortSale")) {
           return jsonResponse({ data: [] });
         }
+        if (url.includes("TaiwanStockMonthRevenue")) {
+          const symbol = new URL(url).searchParams.get("data_id");
+          return jsonResponse({
+            data: [
+              { stock_id: "2330", date: "2026-05-01", revenue: 236021000000, revenue_month: 4, revenue_year: 2026 },
+              { stock_id: "2317", date: "2026-05-01", revenue: 480000000000, revenue_month: 4, revenue_year: 2026 }
+            ].filter((row) => row.stock_id === symbol)
+          });
+        }
         if (url.includes("finmindtrade")) {
           const symbol = new URL(url).searchParams.get("data_id");
           return jsonResponse({
@@ -42,12 +51,12 @@ describe("fetchLiveSources", () => {
       }
     });
 
-    expect(result.sources.finmindRows).toHaveLength(2);
+    expect(result.sources.finmindRows).toHaveLength(4);
     expect(result.sources.finmindStockInfoRows).toHaveLength(2);
     expect(result.sources.rssXml).toContain("台積電");
     expect(result.sources.pttHtml).toContain("2330");
     expect(result.runs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 4 }),
+      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 6 }),
       expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 }),
       expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
     ]));
@@ -307,7 +316,7 @@ describe("fetchLiveSources", () => {
         source: "finmind",
         status: "partial",
         itemCount: 3,
-        message: "FINMIND_TOKEN not configured; using anonymous limited price/chip data"
+        message: "FINMIND_TOKEN not configured; using anonymous limited price/chip/revenue data"
       })
     ]));
   });
@@ -346,7 +355,7 @@ describe("fetchLiveSources", () => {
     ]));
   });
 
-  it("fetches FinMind chip datasets for configured and dynamic symbols", async () => {
+  it("fetches FinMind chip and monthly revenue datasets for configured and dynamic symbols", async () => {
     const requestedDatasets: string[] = [];
     const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",
@@ -378,6 +387,9 @@ describe("fetchLiveSources", () => {
         if (dataset === "TaiwanStockMarginPurchaseShortSale") {
           return jsonResponse({ data: [{ date: "2026-05-27", name: "MarginPurchase", buy: 900, sell: 100, Return: 0, TodayBalance: 12000, YesBalance: 11200 }] });
         }
+        if (dataset === "TaiwanStockMonthRevenue") {
+          return jsonResponse({ data: [{ stock_id: symbol, date: "2026-05-01", revenue: 236021000000, revenue_month: 4, revenue_year: 2026 }] });
+        }
         return jsonResponse({ data: [] });
       }
     });
@@ -386,16 +398,20 @@ describe("fetchLiveSources", () => {
       "TaiwanStockInstitutionalInvestorsBuySell:2330",
       "TaiwanStockInstitutionalInvestorsBuySell:2317",
       "TaiwanStockMarginPurchaseShortSale:2330",
-      "TaiwanStockMarginPurchaseShortSale:2317"
+      "TaiwanStockMarginPurchaseShortSale:2317",
+      "TaiwanStockMonthRevenue:2330",
+      "TaiwanStockMonthRevenue:2317"
     ]));
     expect(result.sources.finmindRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ stock_id: "2330", name: "Foreign_Investor" }),
       expect.objectContaining({ stock_id: "2330", name: "MarginPurchase" }),
       expect.objectContaining({ stock_id: "2317", name: "Foreign_Investor" }),
-      expect.objectContaining({ stock_id: "2317", name: "MarginPurchase" })
+      expect.objectContaining({ stock_id: "2317", name: "MarginPurchase" }),
+      expect.objectContaining({ stock_id: "2330", revenue: 236021000000 }),
+      expect.objectContaining({ stock_id: "2317", revenue: 236021000000 })
     ]));
     expect(result.runs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 6 })
+      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 8 })
     ]));
   });
 });
