@@ -56,11 +56,26 @@ function parseWorkersAiJson(response: unknown): unknown {
   if (!text) {
     return response;
   }
+  const jsonText = extractJsonObject(text);
   try {
-    return JSON.parse(text);
+    return JSON.parse(jsonText);
   } catch {
     return {};
   }
+}
+
+function extractJsonObject(value: string): string {
+  const withoutFence = value
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const start = withoutFence.indexOf("{");
+  const end = withoutFence.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return withoutFence.slice(start, end + 1);
+  }
+  return withoutFence;
 }
 
 function responseText(response: unknown): string {
