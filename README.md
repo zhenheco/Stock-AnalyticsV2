@@ -2,7 +2,7 @@
 
 Cloudflare-native personal Taiwan stock event radar.
 
-The MVP focuses on research discovery, not trading advice. It combines lightweight events from FinMind, PTT titles, and one RSS/news source into a dashboard that explains why a stock surfaced.
+The MVP focuses on research discovery, not trading advice. It combines lightweight events from FinMind, PTT titles, and RSS/news sources into a dashboard that explains why a stock surfaced.
 
 ## Apps
 
@@ -35,7 +35,7 @@ Live ingestion currently connects:
 - FinMind `TaiwanStockMonthRevenue` for low-frequency monthly revenue events.
 - FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token.
 - PTT Stock board recent title pages, with `over18=1` cookie and title-level extraction only.
-- Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
+- Yahoo Taiwan stock RSS and Liberty Times finance RSS in production, configurable through `RSS_FEED_URLS`.
 - Optional Workers AI lightweight classification for short PTT/RSS event titles.
 
 Environment config:
@@ -43,7 +43,7 @@ Environment config:
 - `FINMIND_TOKEN` - optional 1Password reference locally and Cloudflare secret in production. When absent, the Worker still attempts anonymous limited FinMind price/chip/revenue ingestion and marks readiness as degraded.
 - `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip/revenue fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
-- `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news because it has been stable from Cloudflare Workers; add extra feeds only after smoke-testing them from Worker.
+- `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS feeds. Production uses Yahoo Taiwan stock news plus Liberty Times finance RSS after live smoke checks; failed feeds are reported as partial while healthy feeds still ingest.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 - `PTT_STOCK_PAGES` - number of recent PTT Stock board pages to fetch. Defaults to `1`, capped at `5`; production uses `3`.
 - `LLM_CLASSIFIER_ENABLED` - set to `true` to use the Cloudflare Workers AI binding for short-text event classification.
