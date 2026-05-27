@@ -28,6 +28,7 @@ export interface WorkerEnv {
   FINMIND_DYNAMIC_SYMBOL_LIMIT?: string;
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
+  TWSE_NEWS_URL?: string;
   PTT_STOCK_URL?: string;
   PTT_STOCK_PAGES?: string;
   AI?: WorkersAiBinding;
@@ -448,6 +449,7 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
   const finmindItemCount = (sources.finmindRows?.length ?? 0) + (sources.finmindStockInfoRows?.length ?? 0);
   const pttItemCount = sources.pttHtml ? parsePttTitles(sources.pttHtml).length : 0;
   const rssItemCount = sources.rssXml ? countRssItems(sources.rssXml) : 0;
+  const twseItemCount = sources.twseNewsRows?.length ?? 0;
 
   return [
     ...(sources.pttHtml ? [{
@@ -465,6 +467,14 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       startedAt: now,
       finishedAt: now,
       itemCount: rssItemCount
+    }] : []),
+    ...(twseItemCount > 0 ? [{
+      id: `twse:${now}`,
+      source: "twse" as const,
+      status: "ok" as const,
+      startedAt: now,
+      finishedAt: now,
+      itemCount: twseItemCount
     }] : []),
     ...(finmindItemCount > 0 ? [{
       id: `finmind:${now}`,

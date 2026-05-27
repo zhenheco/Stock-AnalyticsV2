@@ -52,16 +52,17 @@ describe("RadarTable", () => {
     const html = renderToString(<RadarTable candidates={[
       candidate({
         symbol: "2330",
-        eventCount: 6,
-        sourceCount: 3,
-        sources: ["ptt", "rss", "finmind"],
-        sourceEventCounts: { ptt: 2, rss: 1, finmind: 3 }
+        eventCount: 7,
+        sourceCount: 4,
+        sources: ["ptt", "rss", "finmind", "twse"],
+        sourceEventCounts: { ptt: 2, rss: 1, finmind: 3, twse: 1 }
       })
     ]} />);
 
     expect(html).toContain("PTT 2");
     expect(html).toContain("RSS 1");
     expect(html).toContain("FinMind 3");
+    expect(html).toContain("TWSE 1");
   });
 
   it("builds source mix segments from candidate counts", () => {

@@ -188,7 +188,8 @@ export interface SourceMixSegment {
 const SOURCE_LABELS: Record<SourceKind, string> = {
   ptt: "PTT",
   rss: "RSS",
-  finmind: "FinMind"
+  finmind: "FinMind",
+  twse: "TWSE"
 };
 
 export function sourceMixSegments(candidate: Candidate): SourceMixSegment[] {

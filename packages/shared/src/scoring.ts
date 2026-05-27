@@ -3,7 +3,8 @@ import type { Candidate, EventRecord, SourceKind } from "./types";
 const SOURCE_WEIGHTS: Record<SourceKind, number> = {
   ptt: 1,
   rss: 1.2,
-  finmind: 0.8
+  finmind: 0.8,
+  twse: 1.1
 };
 
 export function scoreCandidates(events: EventRecord[], names: Record<string, string> = {}): Candidate[] {

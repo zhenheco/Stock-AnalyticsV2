@@ -1,5 +1,5 @@
 import { extractMentionedSymbols } from "./entity";
-import type { FinMindRow, FinMindStockInfoRow, SecurityType, SourceEvent, UniverseStock } from "./types";
+import type { FinMindRow, FinMindStockInfoRow, SecurityType, SourceEvent, TwseNewsRow, UniverseStock } from "./types";
 
 export function parsePttTitles(
   html: string,
@@ -67,6 +67,30 @@ export function parseRssItems(
 
 export function countRssItems(xml: string): number {
   return rssItemBlocks(xml).length;
+}
+
+export function normalizeTwseNewsRows(
+  rows: TwseNewsRow[],
+  aliases: Record<string, string> = {},
+  validSymbols?: ReadonlySet<string>
+): SourceEvent[] {
+  return rows.flatMap((row) => {
+    const title = decodeHtml(textContent(row.Title ?? ""));
+    const url = decodeHtml((row.Url ?? "").trim());
+    const symbols = extractMentionedSymbols(title, aliases, validSymbols, true);
+    if (!title || !url || symbols.length === 0) {
+      return [];
+    }
+
+    return [{
+      source: "twse" as const,
+      title,
+      url,
+      publishedAt: parseRocDate(row.Date),
+      engagement: 0,
+      symbols
+    }];
+  });
 }
 
 export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEvent[] {
@@ -241,6 +265,17 @@ function parseFinMindDate(value: string | undefined, fallback: string): string {
   }
   const parsed = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+}
+
+function parseRocDate(value: string | undefined): string {
+  const normalized = (value ?? "").replace(/\D/g, "");
+  if (!/^\d{7}$/.test(normalized)) {
+    return new Date(0).toISOString();
+  }
+  const year = Number(normalized.slice(0, 3)) + 1911;
+  const month = normalized.slice(3, 5);
+  const day = normalized.slice(5, 7);
+  return `${year}-${month}-${day}T00:00:00.000+08:00`;
 }
 
 function formatNumber(value: number): string {

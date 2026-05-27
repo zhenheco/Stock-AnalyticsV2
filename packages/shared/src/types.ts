@@ -1,4 +1,4 @@
-export type SourceKind = "ptt" | "rss" | "finmind";
+export type SourceKind = "ptt" | "rss" | "finmind" | "twse";
 export type SourceRunStatus = "ok" | "partial" | "failed";
 
 export interface SourceEvent {
@@ -113,4 +113,10 @@ export interface FinMindStockInfoRow {
   market_category?: string;
   industry_category?: string;
   type?: string;
+}
+
+export interface TwseNewsRow {
+  Title?: string;
+  Url?: string;
+  Date?: string;
 }

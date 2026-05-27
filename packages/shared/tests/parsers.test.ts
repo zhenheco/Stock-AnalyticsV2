@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFinMindRows, normalizeFinMindStockInfoRows, parsePttTitles, parseRssItems } from "../src/parsers";
+import { normalizeFinMindRows, normalizeFinMindStockInfoRows, normalizeTwseNewsRows, parsePttTitles, parseRssItems } from "../src/parsers";
 
 describe("parsePttTitles", () => {
   it("extracts title, url, push count, published time, and mentioned symbols", () => {
@@ -143,6 +143,32 @@ describe("parseRssItems", () => {
       expect.objectContaining({
         symbols: ["2330"]
       })
+    ]);
+  });
+});
+
+describe("normalizeTwseNewsRows", () => {
+  it("normalizes TWSE OpenAPI news rows into official source events", () => {
+    expect(normalizeTwseNewsRows([
+      {
+        Title: "自115年5月27日起，永冠能源科技集團有限公司（永冠-KY，公司代號：1589）上市有價證券併案停止買賣",
+        Url: "https://www.twse.com.tw/zh/about/news/news/content.html?id=1",
+        Date: "1150525"
+      },
+      {
+        Title: "市場制度宣導未提及個股",
+        Url: "https://www.twse.com.tw/zh/about/news/news/content.html?id=2",
+        Date: "1150524"
+      }
+    ], { "永冠-KY": "1589" })).toEqual([
+      {
+        source: "twse",
+        title: "自115年5月27日起，永冠能源科技集團有限公司（永冠-KY，公司代號：1589）上市有價證券併案停止買賣",
+        url: "https://www.twse.com.tw/zh/about/news/news/content.html?id=1",
+        publishedAt: "2026-05-25T00:00:00.000+08:00",
+        engagement: 0,
+        symbols: ["1589"]
+      }
     ]);
   });
 });

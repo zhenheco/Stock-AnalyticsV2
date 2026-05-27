@@ -47,6 +47,15 @@ describe("fetchLiveSources", () => {
         if (url.includes("rss.test")) {
           return textResponse("<rss><channel><item><title>台積電 2330 AI 新聞</title><link>https://news.test/1</link><pubDate>Wed, 27 May 2026 04:00:00 GMT</pubDate></item></channel></rss>");
         }
+        if (url.includes("openapi.twse.com.tw")) {
+          return jsonResponse([
+            {
+              Title: "自115年5月27日起，永冠能源科技集團有限公司（永冠-KY，公司代號：1589）上市有價證券併案停止買賣",
+              Url: "https://www.twse.com.tw/zh/about/news/news/content.html?id=1",
+              Date: "1150525"
+            }
+          ]);
+        }
         return textResponse("<div class=\"r-ent\"><div class=\"nrec\"><span>9</span></div><div class=\"title\"><a href=\"/bbs/Stock/M.3.html\">[標的] 2330 台積電 討論</a></div><div class=\"date\"> 5/27</div></div>");
       }
     });
@@ -55,13 +64,53 @@ describe("fetchLiveSources", () => {
     expect(result.sources.finmindStockInfoRows).toHaveLength(2);
     expect(result.sources.rssXml).toContain("台積電");
     expect(result.sources.pttHtml).toContain("2330");
+    expect(result.sources.twseNewsRows).toHaveLength(1);
     expect(result.runs).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "finmind", status: "ok", itemCount: 6 }),
       expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 }),
-      expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
+      expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 }),
+      expect.objectContaining({ source: "twse", status: "ok", itemCount: 1 })
     ]));
     expect(requested.some((entry) => entry.includes("Bearer token"))).toBe(true);
     expect(requested.some((entry) => entry.includes("dataset=TaiwanStockInfo"))).toBe(true);
+  });
+
+  it("fetches TWSE official OpenAPI news as a tokenless event source", async () => {
+    const requested: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        requested.push(url);
+        if (url.includes("openapi.twse.com.tw")) {
+          return jsonResponse([
+            {
+              Title: "東方風能科技股份有限公司上市股票自本（115）年5月27日起得為融資融券交易",
+              Url: "https://www.twse.com.tw/zh/about/news/news/content.html?id=2",
+              Date: "1150526"
+            }
+          ]);
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(requested).toContain("https://openapi.twse.com.tw/v1/news/newsList");
+    expect(result.sources.twseNewsRows).toEqual([
+      expect.objectContaining({
+        Title: "東方風能科技股份有限公司上市股票自本（115）年5月27日起得為融資融券交易"
+      })
+    ]);
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "twse", status: "ok", itemCount: 1 })
+    ]));
   });
 
   it("returns partial source data when one source fails", async () => {

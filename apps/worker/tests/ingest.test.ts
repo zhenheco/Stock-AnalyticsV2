@@ -24,18 +24,26 @@ describe("runIngestion", () => {
             <pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate>
           </item></channel></rss>
         `,
-        finmindRows: [{ stock_id: "2330", stock_name: "台積電", close: 980, Trading_Volume: 1000 }]
+        finmindRows: [{ stock_id: "2330", stock_name: "台積電", close: 980, Trading_Volume: 1000 }],
+        twseNewsRows: [
+          {
+            Title: "臺灣證券交易所對台積電股份有限公司（代號:2330）重大訊息說明",
+            Url: "https://www.twse.com.tw/zh/about/news/news/content.html?id=2330",
+            Date: "1150527"
+          }
+        ]
       }
     });
 
     const candidates = await repo.listCandidates();
     const events = await repo.listEventsForSymbol("2330");
 
-    expect(events).toHaveLength(3);
+    expect(events).toHaveLength(4);
     expect(candidates[0]).toMatchObject({
       symbol: "2330",
       name: "台積電",
-      sourceCount: 3
+      sourceCount: 4,
+      sourceEventCounts: { finmind: 1, ptt: 1, rss: 1, twse: 1 }
     });
   });
 

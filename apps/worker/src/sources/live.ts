@@ -4,7 +4,8 @@ import {
   type FinMindRow,
   type FinMindStockInfoRow,
   type SourceKind,
-  type SourceRun
+  type SourceRun,
+  type TwseNewsRow
 } from "@stock-analytics/shared";
 import type { IngestionSources } from "../ingest";
 
@@ -14,6 +15,7 @@ export interface SourceEnv {
   FINMIND_DYNAMIC_SYMBOL_LIMIT?: string;
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
+  TWSE_NEWS_URL?: string;
   PTT_STOCK_URL?: string;
   PTT_STOCK_PAGES?: string;
 }
@@ -39,15 +41,17 @@ interface FinMindStockInfoResponse {
 }
 
 const FINMIND_ENDPOINT = "https://api.finmindtrade.com/api/v4/data";
+const DEFAULT_TWSE_NEWS_URL = "https://openapi.twse.com.tw/v1/news/newsList";
 const DEFAULT_PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html";
 const DEFAULT_RSS_FEED_URL = "https://tw.stock.yahoo.com/rss?category=news";
 const DEFAULT_FETCH_ATTEMPTS = 2;
 
 export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<LiveSourceResult> {
   const fetcher = input.fetcher ?? fetch;
-  const [ptt, rss, finmind] = await Promise.all([
+  const [ptt, rss, twse, finmind] = await Promise.all([
     fetchPttSource(fetcher, input.env, input.now),
     fetchRssSources(fetcher, input.env, input.now),
+    fetchTwseNewsSource(fetcher, input.env, input.now),
     fetchFinMindSources(fetcher, input.env, input.now, input.finmindSymbols ?? [])
   ]);
 
@@ -55,10 +59,11 @@ export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<Li
     sources: {
       ...(ptt.body ? { pttHtml: ptt.body } : {}),
       ...(rss.body ? { rssXml: rss.body } : {}),
+      ...(twse.rows.length > 0 ? { twseNewsRows: twse.rows } : {}),
       ...(finmind.rows.length > 0 ? { finmindRows: finmind.rows } : {}),
       ...(finmind.stockInfoRows.length > 0 ? { finmindStockInfoRows: finmind.stockInfoRows } : {})
     },
-    runs: [ptt.run, rss.run, finmind.run]
+    runs: [ptt.run, rss.run, twse.run, finmind.run]
   };
 }
 
@@ -126,6 +131,29 @@ async function fetchRssSources(fetcher: typeof fetch, env: SourceEnv, now: strin
       itemCount,
       failedCount > 0 ? `${failedCount} RSS feed(s) failed` : undefined
     )
+  };
+}
+
+async function fetchTwseNewsSource(fetcher: typeof fetch, env: SourceEnv, now: string): Promise<{ rows: TwseNewsRow[]; run: SourceRun }> {
+  const url = env.TWSE_NEWS_URL ?? DEFAULT_TWSE_NEWS_URL;
+  const response = await safeFetch(fetcher, url, {
+    headers: new Headers({
+      accept: "application/json",
+      "user-agent": "StockAnalyticsV2/0.1"
+    })
+  });
+  if (!response?.ok) {
+    return {
+      rows: [],
+      run: buildRun("twse", now, "failed", 0, response ? `HTTP ${response.status}` : "Fetch failed")
+    };
+  }
+
+  const body = await readJson<unknown>(response);
+  const rows = Array.isArray(body) ? body.filter(isTwseNewsRow) : [];
+  return {
+    rows,
+    run: buildRun("twse", now, "ok", rows.length)
   };
 }
 
@@ -257,12 +285,20 @@ function isRetryableResponse(response: Response): boolean {
   return response.status === 408 || response.status === 429 || response.status >= 500;
 }
 
-async function readJson<T extends { data?: unknown[] }>(response: Response): Promise<T> {
+async function readJson<T>(response: Response): Promise<T> {
   try {
     return await response.json() as T;
   } catch {
     return {} as T;
   }
+}
+
+function isTwseNewsRow(value: unknown): value is TwseNewsRow {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const row = value as Record<string, unknown>;
+  return typeof row.Title === "string" && typeof row.Url === "string" && typeof row.Date === "string";
 }
 
 function parseSymbols(value: string | undefined): string[] {

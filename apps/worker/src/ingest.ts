@@ -2,13 +2,15 @@ import {
   extractMentionedSymbols,
   normalizeFinMindRows,
   normalizeFinMindStockInfoRows,
+  normalizeTwseNewsRows,
   parsePttTitles,
   parseRssItems,
   scoreCandidates,
   type EventRecord,
   type FinMindRow,
   type FinMindStockInfoRow,
-  type SourceEvent
+  type SourceEvent,
+  type TwseNewsRow
 } from "@stock-analytics/shared";
 import type { EventClassifier } from "./classifier";
 import type { Repository } from "./repository/types";
@@ -16,6 +18,7 @@ import type { Repository } from "./repository/types";
 export interface IngestionSources {
   pttHtml?: string;
   rssXml?: string;
+  twseNewsRows?: TwseNewsRow[];
   finmindRows?: FinMindRow[];
   finmindStockInfoRows?: FinMindStockInfoRow[];
 }
@@ -43,6 +46,7 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
   const sourceEvents = [
     ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases, validSymbols) : []),
     ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases, validSymbols, false) : []),
+    ...(input.sources.twseNewsRows ? normalizeTwseNewsRows(input.sources.twseNewsRows, aliases, validSymbols) : []),
     ...normalizeFinMindRows(finmindRows, input.now)
   ];
   const relevantSymbols = collectRelevantSymbols(sourceEvents, finmindRows);
@@ -191,13 +195,14 @@ function classifyEvent(title: string, source: SourceEvent["source"]): { sentimen
     title.includes("營收") ? "營收" : "",
     isChipSignal ? "籌碼" : "",
     source === "ptt" ? "討論熱度" : "",
-    source === "finmind" ? "價格量能" : ""
+    source === "finmind" ? "價格量能" : "",
+    source === "twse" ? "官方訊息" : ""
   ].filter(Boolean);
 
   return {
     sentiment: isAnnouncement ? 2 : title.match(/升溫|增加|爆量|成長|強|商機|大漲|漲停/) ? 4 : 3,
     tags: tags.slice(0, 3),
-    reason: isAnnouncement ? "公告事件，可信但催化程度較低" : source === "finmind" && isChipSignal ? "FinMind 籌碼訊號命中" : `${source} 事件訊號命中`
+    reason: isAnnouncement ? "公告事件，可信但催化程度較低" : source === "twse" ? "TWSE 官方事件訊號命中" : source === "finmind" && isChipSignal ? "FinMind 籌碼訊號命中" : `${source} 事件訊號命中`
   };
 }
 
