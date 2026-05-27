@@ -298,6 +298,13 @@ h2 {
   padding: 12px;
 }
 
+.health-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .health-card.ok {
   border-left-color: var(--green);
 }
@@ -311,10 +318,15 @@ h2 {
 }
 
 .health-card span,
+.health-card time,
 .health-card small,
 .health-card p {
   color: var(--muted);
   margin: 0;
+}
+
+.health-card time {
+  font-size: 0.8rem;
 }
 
 .empty-kicker {
