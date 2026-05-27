@@ -8,6 +8,7 @@ describe("Watchlist", () => {
 
     expect(html).toContain("新增追蹤");
     expect(html).toContain("股票代號");
+    expect(html).toContain("公司名稱（選填）");
     expect(html).toContain("管理 Token");
   });
 

@@ -4,7 +4,7 @@ import { readStoredAdminToken, storeAdminToken } from "../adminToken";
 
 interface WatchlistProps {
   entries: WatchlistEntry[];
-  onAdd?: (input: { symbol: string; name: string; adminToken: string }) => Promise<void>;
+  onAdd?: (input: { symbol: string; name?: string; adminToken: string }) => Promise<void>;
   onRemove?: (input: { symbol: string; adminToken: string }) => Promise<void>;
 }
 
@@ -55,8 +55,8 @@ export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
           <input id="watch-symbol" value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="2330" required />
         </div>
         <div>
-          <label htmlFor="watch-name">公司名稱</label>
-          <input id="watch-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="台積電" required />
+          <label htmlFor="watch-name">公司名稱（選填）</label>
+          <input id="watch-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="留空自動帶股票主檔" />
         </div>
         <div>
           <label htmlFor="watch-token">管理 Token</label>

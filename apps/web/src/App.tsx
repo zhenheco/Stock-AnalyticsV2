@@ -212,7 +212,7 @@ function WatchlistRoute() {
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
 
-  async function handleAdd(input: { symbol: string; name: string; adminToken: string }) {
+  async function handleAdd(input: { symbol: string; name?: string; adminToken: string }) {
     const entry = await addWatchlistEntry(input);
     setState((current) => {
       if (current.status !== "ready") {

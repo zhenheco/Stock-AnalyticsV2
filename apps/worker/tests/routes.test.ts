@@ -353,6 +353,30 @@ describe("worker routes", () => {
     expect(body.watchlist).toEqual([{ symbol: "2330", name: "台積電", addedAt: expect.any(String) }]);
   });
 
+  it("fills watchlist names from universe when only a symbol is supplied", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    }]);
+    const app = createApp({ repo, adminToken: "secret" });
+
+    const created = await app.fetch(new Request("https://api.test/api/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-token": "secret" },
+      body: JSON.stringify({ symbol: "2330" })
+    }));
+
+    expect(created.status).toBe(201);
+    await expect(repo.listWatchlist()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2330", name: "台積電" })
+    ]);
+  });
+
   it("removes watchlist entries with a valid admin token", async () => {
     const repo = new MemoryRepository();
     await repo.addWatchlist({ symbol: "2330", name: "台積電" });

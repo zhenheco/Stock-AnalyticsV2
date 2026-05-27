@@ -114,7 +114,9 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     if (!isWatchlistInput(body)) {
       return json({ error: "Invalid watchlist payload" }, 400);
     }
-    const entry = await options.repo.addWatchlist({ symbol: body.symbol, name: body.name });
+    const symbol = body.symbol.toUpperCase();
+    const name = body.name?.trim() || await findUniverseName(options.repo, symbol) || symbol;
+    const entry = await options.repo.addWatchlist({ symbol, name });
     return json(entry, 201);
   }
 
@@ -370,13 +372,17 @@ function parseLimit(value: string | null): number {
   return Math.min(Math.max(Math.trunc(parsed), 0), 500);
 }
 
-function isWatchlistInput(input: unknown): input is { symbol: string; name: string } {
+function isWatchlistInput(input: unknown): input is { symbol: string; name?: string } {
   if (typeof input !== "object" || input === null) {
     return false;
   }
   const record = input as Record<string, unknown>;
   return typeof record.symbol === "string" && isValidSymbol(record.symbol)
-    && typeof record.name === "string" && record.name.trim().length > 0;
+    && (record.name === undefined || (typeof record.name === "string" && record.name.trim().length > 0));
+}
+
+async function findUniverseName(repo: Repository, symbol: string): Promise<string | null> {
+  return (await repo.listUniverse()).find((stock) => stock.symbol === symbol)?.name ?? null;
 }
 
 function isValidSymbol(symbol: string): boolean {

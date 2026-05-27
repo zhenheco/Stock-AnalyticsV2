@@ -25,14 +25,17 @@ export async function fetchWatchlist(): Promise<{ watchlist: WatchlistEntry[] }>
   return fetchJson<{ watchlist: WatchlistEntry[] }>("/api/watchlist");
 }
 
-export async function addWatchlistEntry(input: { symbol: string; name: string; adminToken: string }): Promise<WatchlistEntry> {
+export async function addWatchlistEntry(input: { symbol: string; name?: string; adminToken: string }): Promise<WatchlistEntry> {
   return fetchJson<WatchlistEntry>("/api/watchlist", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-admin-token": input.adminToken
     },
-    body: JSON.stringify({ symbol: input.symbol, name: input.name })
+    body: JSON.stringify({
+      symbol: input.symbol,
+      ...(input.name?.trim() ? { name: input.name.trim() } : {})
+    })
   });
 }
 
