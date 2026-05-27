@@ -221,6 +221,7 @@ describe("fetchLiveSources", () => {
 
   it("retries transient RSS fetch exceptions before using fallback health", async () => {
     let rssAttempts = 0;
+    let canceledBodies = 0;
     const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",
       env: {
@@ -232,7 +233,9 @@ describe("fetchLiveSources", () => {
         if (url.includes("rss.test")) {
           rssAttempts += 1;
           if (rssAttempts === 1) {
-            throw new Error("connection reset");
+            return cancellableResponse(522, () => {
+              canceledBodies += 1;
+            });
           }
           return textResponse("<rss><channel><item><title>台積電 2330 AI 新聞</title><link>https://news.test/1</link><pubDate>Wed, 27 May 2026 04:00:00 GMT</pubDate></item></channel></rss>");
         }
@@ -244,6 +247,7 @@ describe("fetchLiveSources", () => {
     });
 
     expect(rssAttempts).toBe(2);
+    expect(canceledBodies).toBe(1);
     expect(result.sources.rssXml).toContain("台積電");
     expect(result.runs).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 })
@@ -252,6 +256,7 @@ describe("fetchLiveSources", () => {
 
   it("tries configured RSS fallback feeds and reports raw RSS item count", async () => {
     const requested: string[] = [];
+    let canceledBodies = 0;
     const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",
       env: {
@@ -262,7 +267,9 @@ describe("fetchLiveSources", () => {
         const url = String(input);
         requested.push(url);
         if (url.includes("empty.xml")) {
-          return new Response("not found", { status: 404 });
+          return cancellableResponse(404, () => {
+            canceledBodies += 1;
+          });
         }
         if (url.includes("yahoo.xml")) {
           return textResponse(`
@@ -284,6 +291,7 @@ describe("fetchLiveSources", () => {
       "https://rss.test/empty.xml",
       "https://rss.test/yahoo.xml"
     ]));
+    expect(canceledBodies).toBe(1);
     expect(result.sources.rssXml).toContain("廣宇");
     expect(result.runs).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -475,4 +483,10 @@ function textResponse(body: string): Response {
   return new Response(body, {
     headers: { "content-type": "text/plain" }
   });
+}
+
+function cancellableResponse(status: number, onCancel: () => void): Response {
+  return new Response(new ReadableStream({
+    cancel: onCancel
+  }), { status });
 }

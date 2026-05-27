@@ -269,8 +269,12 @@ async function safeFetch(fetcher: typeof fetch, input: RequestInfo | URL, init?:
     try {
       const response = await fetcher(input, init);
       if (!isRetryableResponse(response) || attempt === DEFAULT_FETCH_ATTEMPTS) {
+        if (!response.ok) {
+          await cancelResponseBody(response);
+        }
         return response;
       }
+      await cancelResponseBody(response);
       lastResponse = response;
     } catch {
       if (attempt === DEFAULT_FETCH_ATTEMPTS) {
@@ -279,6 +283,14 @@ async function safeFetch(fetcher: typeof fetch, input: RequestInfo | URL, init?:
     }
   }
   return lastResponse;
+}
+
+async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Body cancellation is best-effort; fetch status handling should continue.
+  }
 }
 
 function isRetryableResponse(response: Response): boolean {
