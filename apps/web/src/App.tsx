@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
-import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist } from "./api";
+import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, triggerAdminIngest } from "./api";
+import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
 import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
@@ -26,16 +27,15 @@ export function App() {
   return <RadarRoute />;
 }
 
+type DashboardData = { candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[] };
+
 function RadarRoute() {
-  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[] }>>({ status: "loading" });
+  const [state, setState] = useState<LoadState<DashboardData>>({ status: "loading" });
   const [filters, setFilters] = useState<RadarFilters>({ minScore: 0, source: "all", tag: "all", sort: "score", watchlistOnly: false });
 
   useEffect(() => {
-    Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist()])
-      .then(([candidateData, healthData, universeData, watchlistData]) => setState({
-        status: "ready",
-        data: { ...candidateData, runs: healthData.runs, universeCount: universeData.count, watchlist: watchlistData.watchlist }
-      }))
+    loadDashboardData()
+      .then((data) => setState({ status: "ready", data }))
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
 
@@ -44,6 +44,13 @@ function RadarRoute() {
   const runs = state.status === "ready" ? state.data.runs : [];
   const universeCount = state.status === "ready" ? state.data.universeCount : 0;
   const watchlistSymbols = new Set(state.status === "ready" ? state.data.watchlist.map((item) => item.symbol) : []);
+
+  async function handleManualRefresh(adminToken: string) {
+    const result = await triggerAdminIngest(adminToken);
+    const data = await loadDashboardData();
+    setState({ status: "ready", data });
+    return result;
+  }
 
   return (
     <main>
@@ -79,12 +86,23 @@ function RadarRoute() {
         {state.status === "ready" ? (
           <>
             <SourceHealth runs={runs} />
+            <AdminRefreshPanel onRefresh={handleManualRefresh} />
             <RadarTable candidates={candidates} filters={filters} onFiltersChange={setFilters} watchlistSymbols={watchlistSymbols} />
           </>
         ) : null}
       </section>
     </main>
   );
+}
+
+async function loadDashboardData(): Promise<DashboardData> {
+  const [candidateData, healthData, universeData, watchlistData] = await Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist()]);
+  return {
+    ...candidateData,
+    runs: healthData.runs,
+    universeCount: universeData.count,
+    watchlist: watchlistData.watchlist
+  };
 }
 
 function StockRoute({ symbol }: { symbol: string }) {

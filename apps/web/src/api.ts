@@ -44,6 +44,17 @@ export async function fetchUniverse(): Promise<{ stocks: UniverseStock[]; count:
   return fetchJson<{ stocks: UniverseStock[]; count: number }>("/api/universe?limit=0");
 }
 
+export async function triggerAdminIngest(adminToken: string): Promise<{ candidateCount: number }> {
+  return fetchJson<{ candidateCount: number }>("/api/admin/run-ingest", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-admin-token": adminToken
+    },
+    body: "{}"
+  });
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {

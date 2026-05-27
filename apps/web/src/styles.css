@@ -356,6 +356,84 @@ h2 {
   font-size: 0.8rem;
 }
 
+.admin-refresh {
+  align-items: end;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 520px);
+  margin-bottom: 22px;
+  padding: 16px;
+}
+
+.admin-refresh h2 {
+  margin-bottom: 8px;
+}
+
+.admin-refresh p:not(.eyebrow) {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.admin-refresh form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) auto;
+}
+
+.admin-refresh label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-refresh label span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.admin-refresh input {
+  background: #111414;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #f1efe4;
+  font: inherit;
+  min-height: 40px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.admin-refresh button {
+  background: var(--amber);
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 13px;
+}
+
+.admin-refresh button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.refresh-result,
+.refresh-error {
+  grid-column: 1 / -1;
+}
+
+.refresh-result {
+  color: var(--green) !important;
+}
+
+.refresh-error {
+  color: #ffd6d4 !important;
+}
+
 .empty-kicker {
   color: var(--green);
   font-weight: 800;
@@ -555,6 +633,8 @@ h2 {
   .timeline li,
   .watch-row,
   .watchlist-form,
+  .admin-refresh,
+  .admin-refresh form,
   .radar-controls {
     grid-template-columns: 1fr;
   }
