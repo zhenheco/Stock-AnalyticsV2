@@ -121,6 +121,7 @@ Cloudflare resources:
 Production smoke endpoints:
 
 ```bash
+pnpm check:production:smoke
 pnpm check:production
 pnpm check:production:ready
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/candidates
@@ -129,6 +130,7 @@ curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
 curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=0"
 ```
 
+`pnpm check:production:smoke` reads `ADMIN_TOKEN` from 1Password, triggers live ingestion, then verifies candidate count plus PTT/RSS/TWSE source runs. It reports counts and statuses only; it does not print raw secrets.
 `pnpm check:production` checks the deployed Pages bundle, Worker readiness, top candidate source contribution counts, and FinMind token presence without printing raw secrets.
 `pnpm check:production:ready` runs the same checks and exits non-zero until all readiness checks, top candidate source counts, Pages assets, and FinMind token presence are ready.
 
