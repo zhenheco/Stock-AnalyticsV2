@@ -27,14 +27,14 @@ export function App() {
 }
 
 function RadarRoute() {
-  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number }>>({ status: "loading" });
-  const [filters, setFilters] = useState<RadarFilters>({ minScore: 0, source: "all", tag: "all", sort: "score" });
+  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[] }>>({ status: "loading" });
+  const [filters, setFilters] = useState<RadarFilters>({ minScore: 0, source: "all", tag: "all", sort: "score", watchlistOnly: false });
 
   useEffect(() => {
-    Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse()])
-      .then(([candidateData, healthData, universeData]) => setState({
+    Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist()])
+      .then(([candidateData, healthData, universeData, watchlistData]) => setState({
         status: "ready",
-        data: { ...candidateData, runs: healthData.runs, universeCount: universeData.count }
+        data: { ...candidateData, runs: healthData.runs, universeCount: universeData.count, watchlist: watchlistData.watchlist }
       }))
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
@@ -43,6 +43,7 @@ function RadarRoute() {
   const updatedAt = state.status === "ready" ? state.data.updatedAt : null;
   const runs = state.status === "ready" ? state.data.runs : [];
   const universeCount = state.status === "ready" ? state.data.universeCount : 0;
+  const watchlistSymbols = new Set(state.status === "ready" ? state.data.watchlist.map((item) => item.symbol) : []);
 
   return (
     <main>
@@ -78,7 +79,7 @@ function RadarRoute() {
         {state.status === "ready" ? (
           <>
             <SourceHealth runs={runs} />
-            <RadarTable candidates={candidates} filters={filters} onFiltersChange={setFilters} />
+            <RadarTable candidates={candidates} filters={filters} onFiltersChange={setFilters} watchlistSymbols={watchlistSymbols} />
           </>
         ) : null}
       </section>

@@ -142,7 +142,7 @@ h2 {
 
 .radar-controls {
   display: grid;
-  grid-template-columns: minmax(130px, 0.7fr) minmax(130px, 0.7fr) minmax(150px, 1fr) minmax(130px, 0.7fr) auto;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(130px, 0.7fr) minmax(150px, 1fr) minmax(130px, 0.7fr) minmax(120px, auto) auto;
   gap: 10px;
   align-items: end;
   border-top: 1px solid var(--line);
@@ -152,6 +152,21 @@ h2 {
 .radar-controls label {
   display: grid;
   gap: 6px;
+}
+
+.radar-controls .checkbox-control {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.checkbox-control input {
+  accent-color: var(--green);
+  width: auto;
 }
 
 .radar-controls span {
@@ -212,6 +227,18 @@ h2 {
 .ticker-stack strong {
   font-size: 1.1rem;
   color: #fff4cf;
+}
+
+.ticker-stack em {
+  border: 1px solid rgba(102, 209, 143, 0.55);
+  border-radius: 999px;
+  color: var(--green);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-style: normal;
+  margin-left: 8px;
+  padding: 2px 6px;
+  vertical-align: middle;
 }
 
 .ticker-stack span,

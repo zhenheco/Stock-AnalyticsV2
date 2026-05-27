@@ -61,14 +61,30 @@ describe("RadarTable", () => {
       minScore: 6,
       source: "rss",
       tag: "AI",
-      sort: "score"
+      sort: "score",
+      watchlistOnly: false
     };
 
     expect(filterAndSortCandidates([
       candidate({ symbol: "2330", score: 8.4, sources: ["ptt", "rss"], tags: ["AI"] }),
       candidate({ symbol: "2356", score: 7.2, sources: ["rss"], tags: ["公告"] }),
       candidate({ symbol: "1402", score: 5.9, sources: ["ptt"], tags: ["AI"] })
-    ], filters).map((item) => item.symbol)).toEqual(["2330"]);
+    ], filters, new Set(["2356"])).map((item) => item.symbol)).toEqual(["2330"]);
+  });
+
+  it("filters candidates to tracked watchlist symbols", () => {
+    const filters: RadarFilters = {
+      minScore: 0,
+      source: "all",
+      tag: "all",
+      sort: "score",
+      watchlistOnly: true
+    };
+
+    expect(filterAndSortCandidates([
+      candidate({ symbol: "2330", score: 8.4 }),
+      candidate({ symbol: "2356", score: 7.2 })
+    ], filters, new Set(["2356"])).map((item) => item.symbol)).toEqual(["2356"]);
   });
 
   it("sorts visible candidates by latest event time when requested", () => {
@@ -79,7 +95,8 @@ describe("RadarTable", () => {
       minScore: 0,
       source: "all",
       tag: "all",
-      sort: "latest"
+      sort: "latest",
+      watchlistOnly: false
     });
 
     expect(visible.map((item) => item.symbol)).toEqual(["2328", "2330"]);
@@ -92,7 +109,7 @@ describe("RadarTable", () => {
           candidate({ symbol: "2330", score: 8.4, sources: ["rss"], tags: ["AI"] }),
           candidate({ symbol: "2356", score: 0.6, sources: ["rss"], tags: ["公告"] })
         ]}
-        filters={{ minScore: 6, source: "all", tag: "all", sort: "score" }}
+        filters={{ minScore: 6, source: "all", tag: "all", sort: "score", watchlistOnly: false }}
         onFiltersChange={() => undefined}
       />
     );
@@ -100,6 +117,20 @@ describe("RadarTable", () => {
     expect(html).toContain("顯示 1 / 2");
     expect(html).toContain("最低分數");
     expect(html).toContain("事件標籤");
+  });
+
+  it("renders watchlist badges and focus control", () => {
+    const html = renderToString(
+      <RadarTable
+        candidates={[candidate({ symbol: "2330", score: 8.4 })]}
+        filters={{ minScore: 0, source: "all", tag: "all", sort: "score", watchlistOnly: false }}
+        onFiltersChange={() => undefined}
+        watchlistSymbols={new Set(["2330"])}
+      />
+    );
+
+    expect(html).toContain("已追蹤");
+    expect(html).toContain("只看追蹤");
   });
 });
 

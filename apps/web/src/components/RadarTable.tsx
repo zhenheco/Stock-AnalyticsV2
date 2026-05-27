@@ -4,6 +4,7 @@ interface RadarTableProps {
   candidates: Candidate[];
   filters?: RadarFilters;
   onFiltersChange?: (filters: RadarFilters) => void;
+  watchlistSymbols?: ReadonlySet<string>;
 }
 
 export interface RadarFilters {
@@ -11,16 +12,18 @@ export interface RadarFilters {
   source: SourceKind | "all";
   tag: string | "all";
   sort: "score" | "latest";
+  watchlistOnly: boolean;
 }
 
 const DEFAULT_FILTERS: RadarFilters = {
   minScore: 0,
   source: "all",
   tag: "all",
-  sort: "score"
+  sort: "score",
+  watchlistOnly: false
 };
 
-export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersChange }: RadarTableProps) {
+export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersChange, watchlistSymbols = new Set() }: RadarTableProps) {
   if (candidates.length === 0) {
     return (
       <section className="empty-state" aria-live="polite">
@@ -31,7 +34,7 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersCha
     );
   }
 
-  const visibleCandidates = filterAndSortCandidates(candidates, filters);
+  const visibleCandidates = filterAndSortCandidates(candidates, filters, watchlistSymbols);
   const sources = unique(candidates.flatMap((candidate) => candidate.sources));
   const tags = unique(candidates.flatMap((candidate) => candidate.tags)).sort((left, right) => left.localeCompare(right, "zh-Hant"));
 
@@ -74,6 +77,15 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersCha
             <option value="latest">最新事件</option>
           </select>
         </label>
+        <label className="checkbox-control">
+          <input
+            checked={filters.watchlistOnly}
+            disabled={watchlistSymbols.size === 0}
+            type="checkbox"
+            onChange={(event) => updateFilters({ watchlistOnly: event.currentTarget.checked })}
+          />
+          <span>只看追蹤</span>
+        </label>
         <strong>{`顯示 ${visibleCandidates.length} / ${candidates.length}`}</strong>
       </div>
       {visibleCandidates.length === 0 ? (
@@ -100,7 +112,10 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersCha
                 <tr key={candidate.symbol}>
                   <td>
                     <div className="ticker-stack">
-                      <strong>{candidate.symbol}</strong>
+                      <strong>
+                        {candidate.symbol}
+                        {watchlistSymbols.has(candidate.symbol) ? <em>已追蹤</em> : null}
+                      </strong>
                       <span>{candidate.name}</span>
                     </div>
                   </td>
@@ -140,11 +155,12 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onFiltersCha
   );
 }
 
-export function filterAndSortCandidates(candidates: Candidate[], filters: RadarFilters): Candidate[] {
+export function filterAndSortCandidates(candidates: Candidate[], filters: RadarFilters, watchlistSymbols: ReadonlySet<string> = new Set()): Candidate[] {
   return candidates
     .filter((candidate) => candidate.score >= filters.minScore)
     .filter((candidate) => filters.source === "all" || candidate.sources.includes(filters.source))
     .filter((candidate) => filters.tag === "all" || candidate.tags.includes(filters.tag))
+    .filter((candidate) => !filters.watchlistOnly || watchlistSymbols.has(candidate.symbol))
     .sort((left, right) => {
       if (filters.sort === "latest") {
         return right.latestAt.localeCompare(left.latestAt);
