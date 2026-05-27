@@ -30,6 +30,17 @@ describe("D1Repository", () => {
     await expect(repo.removeWatchlist("2330")).resolves.toBe(false);
     await expect(repo.listWatchlist()).resolves.toEqual([]);
   });
+
+  it("returns the existing watchlist entry when adding a duplicate symbol", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+
+    const first = await repo.addWatchlist({ symbol: "2330", name: "台積電" });
+    const duplicate = await repo.addWatchlist({ symbol: "2330", name: "台積電 ADR" });
+
+    expect(duplicate).toEqual(first);
+    await expect(repo.listWatchlist()).resolves.toEqual([first]);
+  });
 });
 
 function candidate(symbol: string, name: string): Candidate {

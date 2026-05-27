@@ -138,10 +138,17 @@ export class D1Repository implements Repository {
 
   async listWatchlist(): Promise<WatchlistEntry[]> {
     const rows = await this.db.prepare("SELECT symbol, name, added_at FROM watchlist ORDER BY symbol").all<WatchlistRow>();
-    return (rows.results ?? []).map((row) => ({ symbol: row.symbol, name: row.name, addedAt: row.added_at }));
+    return (rows.results ?? []).map(rowToWatchlistEntry);
   }
 
   async addWatchlist(entry: Omit<WatchlistEntry, "addedAt">): Promise<WatchlistEntry> {
+    const existing = await this.db.prepare("SELECT symbol, name, added_at FROM watchlist WHERE symbol = ?")
+      .bind(entry.symbol)
+      .all<WatchlistRow>();
+    if (existing.results?.[0]) {
+      return rowToWatchlistEntry(existing.results[0]);
+    }
+
     const addedAt = new Date().toISOString();
     await this.db.prepare("INSERT OR IGNORE INTO watchlist (symbol, name, added_at) VALUES (?, ?, ?)")
       .bind(entry.symbol, entry.name, addedAt)
@@ -158,6 +165,10 @@ export class D1Repository implements Repository {
       .run();
     return Boolean(existing.results?.length);
   }
+}
+
+function rowToWatchlistEntry(row: WatchlistRow): WatchlistEntry {
+  return { symbol: row.symbol, name: row.name, addedAt: row.added_at };
 }
 
 interface CandidateRow {
