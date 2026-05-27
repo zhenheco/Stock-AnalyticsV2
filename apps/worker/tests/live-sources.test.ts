@@ -110,6 +110,57 @@ describe("fetchLiveSources", () => {
     ]));
   });
 
+  it("fetches recent PTT pages by following previous page links", async () => {
+    const requested: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        PTT_STOCK_PAGES: "2",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://www.ptt.cc/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        requested.push(url);
+        if (url.endsWith("/bbs/Stock/index.html")) {
+          return textResponse(`
+            <div class="btn-group-paging">
+              <a class="btn wide" href="/bbs/Stock/index999.html">上頁</a>
+            </div>
+            <div class="r-ent">
+              <div class="nrec"><span>9</span></div>
+              <div class="title"><a href="/bbs/Stock/M.3.html">[標的] 2330 台積電 討論</a></div>
+              <div class="date"> 5/27</div>
+            </div>
+          `);
+        }
+        if (url.endsWith("/bbs/Stock/index999.html")) {
+          return textResponse(`
+            <div class="r-ent">
+              <div class="nrec"><span>12</span></div>
+              <div class="title"><a href="/bbs/Stock/M.2.html">[新聞] 2317 鴻海 AI 伺服器</a></div>
+              <div class="date"> 5/27</div>
+            </div>
+          `);
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(requested).toEqual(expect.arrayContaining([
+      "https://www.ptt.cc/bbs/Stock/index.html",
+      "https://www.ptt.cc/bbs/Stock/index999.html"
+    ]));
+    expect(result.sources.pttHtml).toContain("2330 台積電");
+    expect(result.sources.pttHtml).toContain("2317 鴻海");
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "ptt", status: "ok", itemCount: 2 })
+    ]));
+  });
+
   it("retries transient RSS fetch exceptions before using fallback health", async () => {
     let rssAttempts = 0;
     const result = await fetchLiveSources({

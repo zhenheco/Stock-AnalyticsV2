@@ -15,6 +15,7 @@ export interface SourceEnv {
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   PTT_STOCK_URL?: string;
+  PTT_STOCK_PAGES?: string;
 }
 
 export interface FetchLiveSourcesInput {
@@ -45,13 +46,7 @@ const DEFAULT_FETCH_ATTEMPTS = 2;
 export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<LiveSourceResult> {
   const fetcher = input.fetcher ?? fetch;
   const [ptt, rss, finmind] = await Promise.all([
-    fetchTextSource("ptt", fetcher, input.env.PTT_STOCK_URL ?? DEFAULT_PTT_STOCK_URL, input.now, {
-      headers: new Headers({
-        cookie: "over18=1",
-        "user-agent": "StockAnalyticsV2/0.1"
-      }),
-      countItems: (body) => parsePttTitles(body).length
-    }),
+    fetchPttSource(fetcher, input.env, input.now),
     fetchRssSources(fetcher, input.env, input.now),
     fetchFinMindSources(fetcher, input.env, input.now, input.finmindSymbols ?? [])
   ]);
@@ -64,6 +59,48 @@ export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<Li
       ...(finmind.stockInfoRows.length > 0 ? { finmindStockInfoRows: finmind.stockInfoRows } : {})
     },
     runs: [ptt.run, rss.run, finmind.run]
+  };
+}
+
+async function fetchPttSource(fetcher: typeof fetch, env: SourceEnv, now: string): Promise<{ body?: string; run: SourceRun }> {
+  const pageLimit = parsePttPageLimit(env.PTT_STOCK_PAGES);
+  let nextUrl: string | undefined = env.PTT_STOCK_URL ?? DEFAULT_PTT_STOCK_URL;
+  const bodies: string[] = [];
+  let failedCount = 0;
+
+  for (let page = 0; page < pageLimit && nextUrl; page += 1) {
+    const currentUrl = nextUrl;
+    const result = await fetchTextSource("ptt", fetcher, currentUrl, now, {
+      headers: new Headers({
+        cookie: "over18=1",
+        "user-agent": "StockAnalyticsV2/0.1"
+      }),
+      countItems: (body) => parsePttTitles(body).length
+    });
+
+    if (!result.body) {
+      failedCount += 1;
+      if (page === 0) {
+        return result;
+      }
+      break;
+    }
+
+    bodies.push(result.body);
+    nextUrl = extractPttPreviousPageUrl(result.body, currentUrl);
+  }
+
+  const itemCount = bodies.reduce((total, body) => total + parsePttTitles(body).length, 0);
+  const status = failedCount > 0 ? "partial" : "ok";
+  return {
+    ...(bodies.length > 0 ? { body: bodies.join("\n") } : {}),
+    run: buildRun(
+      "ptt",
+      now,
+      status,
+      itemCount,
+      failedCount > 0 ? `${failedCount} PTT page(s) failed` : undefined
+    )
   };
 }
 
@@ -247,6 +284,14 @@ function parseSymbolLimit(value: string | undefined): number {
   return Math.min(Math.max(Math.trunc(parsed), 1), 20);
 }
 
+function parsePttPageLimit(value: string | undefined): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 1;
+  }
+  return Math.min(Math.max(Math.trunc(parsed), 1), 5);
+}
+
 function parseRssUrls(env: SourceEnv): string[] {
   const configured = env.RSS_FEED_URLS ?? env.RSS_FEED_URL ?? DEFAULT_RSS_FEED_URL;
   const urls = configured
@@ -254,6 +299,14 @@ function parseRssUrls(env: SourceEnv): string[] {
     .map((url) => url.trim())
     .filter((url) => url.startsWith("https://"));
   return urls.length > 0 ? urls : [DEFAULT_RSS_FEED_URL];
+}
+
+function extractPttPreviousPageUrl(html: string, currentUrl: string): string | undefined {
+  const match = html.match(/<a[^>]+href="([^"]+)"[^>]*>[^<]*上頁[^<]*<\/a>/);
+  if (!match?.[1]) {
+    return undefined;
+  }
+  return new URL(match[1], currentUrl).toString();
 }
 
 function buildRun(

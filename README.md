@@ -33,7 +33,7 @@ Live ingestion currently connects:
 - FinMind `TaiwanStockPrice` through `https://api.finmindtrade.com/api/v4/data`, one configured symbol at a time.
 - FinMind `TaiwanStockInstitutionalInvestorsBuySell` and `TaiwanStockMarginPurchaseShortSale` for lightweight chip events.
 - FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token.
-- PTT Stock board title page, with `over18=1` cookie and title-level extraction only.
+- PTT Stock board recent title pages, with `over18=1` cookie and title-level extraction only.
 - Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
 - Optional Workers AI lightweight classification for short PTT/RSS event titles.
 
@@ -44,6 +44,7 @@ Environment config:
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news because it has been stable from Cloudflare Workers; add extra feeds only after smoke-testing them from Worker.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
+- `PTT_STOCK_PAGES` - number of recent PTT Stock board pages to fetch. Defaults to `1`, capped at `5`; production uses `3`.
 - `LLM_CLASSIFIER_ENABLED` - set to `true` to use the Cloudflare Workers AI binding for short-text event classification.
 - `LLM_CLASSIFIER_MODEL` - Workers AI chat model. Defaults to `@cf/meta/llama-3.1-8b-instruct`.
 - `LLM_CLASSIFIER_LIMIT` - maximum non-FinMind events to classify per ingestion or scoring run. Defaults to `8`, capped at `20` to leave Worker cron timeout headroom.
