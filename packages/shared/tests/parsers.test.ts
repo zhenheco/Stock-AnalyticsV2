@@ -88,6 +88,47 @@ describe("parseRssItems", () => {
       })
     ]);
   });
+
+  it("cleans CDATA wrappers from RSS titles and links", () => {
+    const xml = `
+      <rss><channel>
+        <item>
+          <title><![CDATA[廣宇衝刺AI與機器人商機]]></title>
+          <link><![CDATA[https://news.test/2328]]></link>
+          <pubDate>Wed, 27 May 2026 01:00:00 GMT</pubDate>
+        </item>
+      </channel></rss>
+    `;
+
+    expect(parseRssItems(xml, { 廣宇: "2328" })).toEqual([
+      {
+        source: "rss",
+        title: "廣宇衝刺AI與機器人商機",
+        url: "https://news.test/2328",
+        publishedAt: "2026-05-27T01:00:00.000Z",
+        engagement: 0,
+        symbols: ["2328"]
+      }
+    ]);
+  });
+
+  it("filters numeric RSS matches to known stock symbols when a universe is provided", () => {
+    const xml = `
+      <rss><channel>
+        <item>
+          <title>2026年AI支出達8000億 台積電2330受惠</title>
+          <link>https://example.com/news/3</link>
+          <pubDate>Wed, 27 May 2026 01:00:00 GMT</pubDate>
+        </item>
+      </channel></rss>
+    `;
+
+    expect(parseRssItems(xml, {}, new Set(["2330"]))).toEqual([
+      expect.objectContaining({
+        symbols: ["2330"]
+      })
+    ]);
+  });
 });
 
 describe("normalizeFinMindStockInfoRows", () => {

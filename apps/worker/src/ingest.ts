@@ -30,9 +30,10 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
     ? normalizeFinMindStockInfoRows(input.sources.finmindStockInfoRows, input.now)
     : [];
   const aliases = buildAliasMap([...existingUniverse, ...incomingUniverse]);
+  const validSymbols = new Set([...existingUniverse, ...incomingUniverse].map((stock) => stock.symbol));
   const sourceEvents = [
-    ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases) : []),
-    ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases) : []),
+    ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases, validSymbols) : []),
+    ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases, validSymbols, false) : []),
     ...(input.sources.finmindRows ? normalizeFinMindRows(input.sources.finmindRows, input.now) : [])
   ];
   const relevantSymbols = collectRelevantSymbols(sourceEvents, input.sources.finmindRows ?? []);

@@ -1,7 +1,13 @@
 import { extractMentionedSymbols } from "./entity";
 import type { FinMindRow, FinMindStockInfoRow, SecurityType, SourceEvent, UniverseStock } from "./types";
 
-export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc", aliases: Record<string, string> = {}): SourceEvent[] {
+export function parsePttTitles(
+  html: string,
+  baseUrl = "https://www.ptt.cc",
+  aliases: Record<string, string> = {},
+  validSymbols?: ReadonlySet<string>,
+  includeNumericSymbols = true
+): SourceEvent[] {
   const blocks = html
     .split('<div class="r-ent">')
     .slice(1)
@@ -15,7 +21,7 @@ export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc", ali
 
     const dateText = textContent(block.match(/<div class="date">([\s\S]*?)<\/div>/)?.[1] ?? "");
     const title = decodeHtml(textContent(titleMatch[2]));
-    const symbols = extractMentionedSymbols(title, aliases);
+    const symbols = extractMentionedSymbols(title, aliases, validSymbols, includeNumericSymbols);
     if (symbols.length === 0) {
       return [];
     }
@@ -31,14 +37,19 @@ export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc", ali
   });
 }
 
-export function parseRssItems(xml: string, aliases: Record<string, string> = {}): SourceEvent[] {
-  const blocks = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+export function parseRssItems(
+  xml: string,
+  aliases: Record<string, string> = {},
+  validSymbols?: ReadonlySet<string>,
+  includeNumericSymbols = true
+): SourceEvent[] {
+  const blocks = rssItemBlocks(xml);
 
   return blocks.flatMap((block) => {
-    const title = decodeHtml(extractTag(block, "title"));
-    const link = decodeHtml(extractTag(block, "link"));
+    const title = decodeHtml(decodeCdata(extractTag(block, "title")));
+    const link = decodeHtml(decodeCdata(extractTag(block, "link")));
     const published = extractTag(block, "pubDate");
-    const symbols = extractMentionedSymbols(title, aliases);
+    const symbols = extractMentionedSymbols(title, aliases, validSymbols, includeNumericSymbols);
     if (!title || !link || symbols.length === 0) {
       return [];
     }
@@ -52,6 +63,10 @@ export function parseRssItems(xml: string, aliases: Record<string, string> = {})
       symbols
     }];
   });
+}
+
+export function countRssItems(xml: string): number {
+  return rssItemBlocks(xml).length;
 }
 
 export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEvent[] {
@@ -118,7 +133,11 @@ function parsePttDate(value: string): string {
 }
 
 function extractTag(xml: string, tag: string): string {
-  return textContent(xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`))?.[1] ?? "");
+  return (xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`))?.[1] ?? "").trim();
+}
+
+function rssItemBlocks(xml: string): string[] {
+  return xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
 }
 
 function textContent(value: string): string {
@@ -132,6 +151,10 @@ function decodeHtml(value: string): string {
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", "\"")
     .replaceAll("&#39;", "'");
+}
+
+function decodeCdata(value: string): string {
+  return value.replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim();
 }
 
 function normalizeSymbol(value: string | undefined): string {

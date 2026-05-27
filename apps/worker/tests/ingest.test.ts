@@ -154,4 +154,62 @@ describe("runIngestion", () => {
       })
     ]);
   });
+
+  it("does not ingest arbitrary four-digit numbers from RSS as stock symbols", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        rssXml: `
+          <rss><channel><item>
+            <title>2026年AI支出達8000億 台積電2330受惠</title>
+            <link>https://news.test/ai-spend</link>
+            <pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate>
+          </item></channel></rss>
+        `
+      }
+    });
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2330", name: "台積電" })
+    ]);
+  });
+
+  it("does not ingest valid stock codes from RSS when they are only ordinary numbers", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2034",
+      name: "允強",
+      market: "上市",
+      industry: "鋼鐵工業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        rssXml: `
+          <rss><channel><item>
+            <title>黃仁勳點名台灣電力 2034年前都沒問題</title>
+            <link>https://news.test/power</link>
+            <pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate>
+          </item></channel></rss>
+        `
+      }
+    });
+
+    await expect(repo.listCandidates()).resolves.toEqual([]);
+  });
 });

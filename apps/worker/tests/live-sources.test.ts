@@ -76,6 +76,51 @@ describe("fetchLiveSources", () => {
     ]));
   });
 
+  it("tries configured RSS fallback feeds and reports raw RSS item count", async () => {
+    const requested: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        RSS_FEED_URLS: "https://rss.test/empty.xml,https://rss.test/yahoo.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        requested.push(url);
+        if (url.includes("empty.xml")) {
+          return new Response("not found", { status: 404 });
+        }
+        if (url.includes("yahoo.xml")) {
+          return textResponse(`
+            <rss><channel><item>
+              <title><![CDATA[廣宇衝刺AI與機器人商機]]></title>
+              <link><![CDATA[https://news.test/2328]]></link>
+              <pubDate>Wed, 27 May 2026 04:00:00 GMT</pubDate>
+            </item></channel></rss>
+          `);
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(requested).toEqual(expect.arrayContaining([
+      "https://rss.test/empty.xml",
+      "https://rss.test/yahoo.xml"
+    ]));
+    expect(result.sources.rssXml).toContain("廣宇");
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: "rss",
+        status: "partial",
+        itemCount: 1,
+        message: "1 RSS feed(s) failed"
+      })
+    ]));
+  });
+
   it("fetches FinMind stock info without a token and leaves price data partial", async () => {
     const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",

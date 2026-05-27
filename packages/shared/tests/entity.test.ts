@@ -28,4 +28,10 @@ describe("extractMentionedSymbols", () => {
 
     expect(symbols).toEqual(["2454"]);
   });
+
+  it("can restrict numeric symbol extraction to a known universe", () => {
+    const symbols = extractMentionedSymbols("2026年AI支出達8000億，台積電2330受惠", {}, new Set(["2330"]));
+
+    expect(symbols).toEqual(["2330"]);
+  });
 });

@@ -13,13 +13,22 @@ const ALIASES: Record<string, string> = {
   元大台灣50: "0050"
 };
 
-export function extractMentionedSymbols(text: string, aliases: Record<string, string> = {}): string[] {
+export function extractMentionedSymbols(
+  text: string,
+  aliases: Record<string, string> = {},
+  validSymbols?: ReadonlySet<string>,
+  includeNumericSymbols = true
+): string[] {
   const normalizedText = stripDateLikeText(text);
   const seen = new Set<string>();
   const results: string[] = [];
 
-  for (const match of normalizedText.matchAll(SYMBOL_PATTERN)) {
-    appendUnique(match[0], seen, results);
+  if (includeNumericSymbols) {
+    for (const match of normalizedText.matchAll(SYMBOL_PATTERN)) {
+      if (!validSymbols || validSymbols.has(match[0])) {
+        appendUnique(match[0], seen, results);
+      }
+    }
   }
 
   const matchedRanges: Array<{ start: number; end: number }> = [];

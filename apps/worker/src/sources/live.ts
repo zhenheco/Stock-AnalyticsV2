@@ -1,6 +1,6 @@
 import {
+  countRssItems,
   parsePttTitles,
-  parseRssItems,
   type FinMindRow,
   type FinMindStockInfoRow,
   type SourceKind,
@@ -11,6 +11,7 @@ import type { IngestionSources } from "../ingest";
 export interface SourceEnv {
   FINMIND_TOKEN?: string;
   FINMIND_SYMBOLS?: string;
+  RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   PTT_STOCK_URL?: string;
 }
@@ -48,9 +49,7 @@ export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<Li
       }),
       countItems: (body) => parsePttTitles(body).length
     }),
-    fetchTextSource("rss", fetcher, input.env.RSS_FEED_URL ?? DEFAULT_RSS_FEED_URL, input.now, {
-      countItems: (body) => parseRssItems(body).length
-    }),
+    fetchRssSources(fetcher, input.env, input.now),
     fetchFinMindSources(fetcher, input.env, input.now)
   ]);
 
@@ -62,6 +61,31 @@ export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<Li
       ...(finmind.stockInfoRows.length > 0 ? { finmindStockInfoRows: finmind.stockInfoRows } : {})
     },
     runs: [ptt.run, rss.run, finmind.run]
+  };
+}
+
+async function fetchRssSources(fetcher: typeof fetch, env: SourceEnv, now: string): Promise<{ body?: string; run: SourceRun }> {
+  const urls = parseRssUrls(env);
+  const results = await Promise.all(urls.map(async (url) => {
+    const result = await fetchTextSource("rss", fetcher, url, now, {
+      countItems: countRssItems
+    });
+    return { url, ...result };
+  }));
+  const bodies = results.flatMap((result) => result.body ? [result.body] : []);
+  const itemCount = bodies.reduce((total, body) => total + countRssItems(body), 0);
+  const failedCount = results.filter((result) => result.run.status === "failed").length;
+  const status = failedCount === urls.length ? "failed" : failedCount > 0 ? "partial" : "ok";
+
+  return {
+    ...(bodies.length > 0 ? { body: bodies.join("\n") } : {}),
+    run: buildRun(
+      "rss",
+      now,
+      status,
+      itemCount,
+      failedCount > 0 ? `${failedCount} RSS feed(s) failed` : undefined
+    )
   };
 }
 
@@ -172,6 +196,15 @@ function parseSymbols(value: string | undefined): string[] {
     .split(",")
     .map((symbol) => symbol.trim())
     .filter((symbol) => /^\d{4,6}[A-Z]?$/.test(symbol));
+}
+
+function parseRssUrls(env: SourceEnv): string[] {
+  const configured = env.RSS_FEED_URLS ?? env.RSS_FEED_URL ?? DEFAULT_RSS_FEED_URL;
+  const urls = configured
+    .split(/[\n,]/)
+    .map((url) => url.trim())
+    .filter((url) => url.startsWith("https://"));
+  return urls.length > 0 ? urls : [DEFAULT_RSS_FEED_URL];
 }
 
 function buildRun(
