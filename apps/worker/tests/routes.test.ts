@@ -577,6 +577,78 @@ describe("worker routes", () => {
     expect(accepted.status).toBe(202);
     expect(await repo.listEventsForSymbol("2330")).toHaveLength(1);
   });
+
+  it("uses universe names when signed social ingest updates candidates", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    }]);
+    const app = createApp({ repo, ingestToken: "ingest-secret" });
+    const body = JSON.stringify({
+      events: [{
+        source: "ptt",
+        title: "2330 AI 需求討論",
+        url: "https://community.test/2",
+        publishedAt: "2026-05-27T03:00:00.000Z",
+        engagement: 12,
+        symbols: ["2330"]
+      }]
+    });
+    const signature = await signIngestBody(body, "ingest-secret");
+
+    const response = await app.fetch(new Request("https://api.test/api/ingest/social", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-ingest-signature": signature },
+      body
+    }));
+
+    expect(response.status).toBe(202);
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2330", name: "台積電" })
+    ]);
+  });
+
+  it("records a source run when signed social ingest is accepted", async () => {
+    const repo = new MemoryRepository();
+    const app = createApp({
+      repo,
+      ingestToken: "ingest-secret",
+      now: () => "2026-05-27T09:30:00.000Z"
+    });
+    const body = JSON.stringify({
+      events: [{
+        source: "ptt",
+        title: "2330 台積電 討論熱度",
+        url: "https://community.test/3",
+        publishedAt: "2026-05-27T09:00:00.000Z",
+        engagement: 8,
+        symbols: ["2330"]
+      }]
+    });
+    const signature = await signIngestBody(body, "ingest-secret");
+
+    const response = await app.fetch(new Request("https://api.test/api/ingest/social", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-ingest-signature": signature },
+      body
+    }));
+
+    expect(response.status).toBe(202);
+    await expect(repo.listSourceRuns()).resolves.toEqual([
+      expect.objectContaining({
+        source: "ptt",
+        status: "ok",
+        startedAt: "2026-05-27T09:30:00.000Z",
+        itemCount: 1,
+        message: "signed social ingest accepted"
+      })
+    ]);
+  });
 });
 
 function sourceRun(overrides: Partial<SourceRun>): SourceRun {

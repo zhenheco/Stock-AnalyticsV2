@@ -189,6 +189,16 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
       return json({ error: "Invalid social ingest payload" }, 400);
     }
     await persistSourceEvents(options.repo, body.events);
+    const now = options.now?.() ?? new Date().toISOString();
+    await options.repo.saveSourceRuns([{
+      id: `ptt:social:${now}`,
+      source: "ptt",
+      status: "ok",
+      startedAt: now,
+      finishedAt: now,
+      itemCount: body.events.length,
+      message: "signed social ingest accepted"
+    }]);
     return json({ accepted: body.events.length }, 202);
   }
 
