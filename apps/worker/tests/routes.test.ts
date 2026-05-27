@@ -162,6 +162,7 @@ describe("worker routes", () => {
     await repo.saveSourceRuns([
       sourceRun({ source: "rss", status: "ok", itemCount: 50, startedAt: "2026-05-27T08:00:00.000Z" }),
       sourceRun({ source: "ptt", status: "ok", itemCount: 10, startedAt: "2026-05-27T08:00:00.000Z" }),
+      sourceRun({ source: "twse", status: "ok", itemCount: 326, startedAt: "2026-05-27T08:00:00.000Z" }),
       sourceRun({ source: "finmind", status: "ok", itemCount: 4274, startedAt: "2026-05-27T08:00:00.000Z" })
     ]);
     const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T09:00:00.000Z" });
@@ -196,6 +197,7 @@ describe("worker routes", () => {
     await repo.saveSourceRuns([
       sourceRun({ source: "rss", status: "ok", itemCount: 50 }),
       sourceRun({ source: "ptt", status: "ok", itemCount: 10 }),
+      sourceRun({ source: "twse", status: "ok", itemCount: 326 }),
       sourceRun({
         source: "finmind",
         status: "partial",
@@ -211,6 +213,11 @@ describe("worker routes", () => {
     expect(response.status).toBe(200);
     expect(body.status).toBe("degraded");
     expect(body.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "official-events",
+        status: "ready",
+        message: "TWSE 官方 OpenAPI newsList 最近一次同步正常"
+      }),
       expect.objectContaining({
         id: "finmind-signals",
         status: "degraded",

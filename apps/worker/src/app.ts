@@ -257,6 +257,7 @@ async function dataReadiness(repo: Repository, now: string): Promise<DataReadine
     checkUniverse(universeCount),
     checkCandidates(candidates.length),
     checkSocialEvents(latestRuns, now),
+    checkOfficialEvents(latestRuns, now),
     checkFinMindSignals(latestRuns, now)
   ];
 
@@ -296,6 +297,32 @@ function checkSocialEvents(latestRuns: SourceRun[], now: string): ReadinessCheck
     return { id: "social-events", label: "社群/時事", status: "ready", message: "PTT 與 RSS 來源最近一次同步正常" };
   }
   return { id: "social-events", label: "社群/時事", status: "degraded", message: "PTT 或 RSS 最近一次同步不完整，系統會保留既有資料並重試" };
+}
+
+function checkOfficialEvents(latestRuns: SourceRun[], now: string): ReadinessCheck {
+  const twse = latestRuns.find((run) => run.source === "twse");
+  if (twse && !isFreshRun(twse, now)) {
+    return {
+      id: "official-events",
+      label: "官方公告",
+      status: "degraded",
+      message: `TWSE 官方 OpenAPI newsList 最近一次同步已超過 ${SOURCE_FRESHNESS_HOURS} 小時，請檢查 cron 或手動同步`
+    };
+  }
+  if (twse?.status === "ok") {
+    return {
+      id: "official-events",
+      label: "官方公告",
+      status: "ready",
+      message: "TWSE 官方 OpenAPI newsList 最近一次同步正常"
+    };
+  }
+  return {
+    id: "official-events",
+    label: "官方公告",
+    status: "degraded",
+    message: twse?.message ?? "TWSE 官方 OpenAPI newsList 尚未完成最近一次同步"
+  };
 }
 
 function checkFinMindSignals(latestRuns: SourceRun[], now: string): ReadinessCheck {
