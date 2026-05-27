@@ -3,6 +3,7 @@ import { readStoredAdminToken, storeAdminToken } from "../adminToken";
 
 interface AdminRefreshPanelProps {
   onRefresh: (adminToken: string) => Promise<{ candidateCount: number }>;
+  onScore: (adminToken: string) => Promise<{ candidateCount: number }>;
 }
 
 type RefreshState =
@@ -11,12 +12,20 @@ type RefreshState =
   | { status: "success"; candidateCount: number }
   | { status: "error"; message: string };
 
-export function AdminRefreshPanel({ onRefresh }: AdminRefreshPanelProps) {
+export function AdminRefreshPanel({ onRefresh, onScore }: AdminRefreshPanelProps) {
   const [adminToken, setAdminToken] = useState(() => readStoredAdminToken());
   const [state, setState] = useState<RefreshState>({ status: "idle" });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await runAdminAction(onRefresh);
+  }
+
+  async function handleScore() {
+    await runAdminAction(onScore);
+  }
+
+  async function runAdminAction(action: (adminToken: string) => Promise<{ candidateCount: number }>) {
     const token = adminToken.trim();
     if (!token) {
       setState({ status: "error", message: "請輸入 Admin token" });
@@ -54,6 +63,9 @@ export function AdminRefreshPanel({ onRefresh }: AdminRefreshPanelProps) {
         </label>
         <button type="submit" disabled={state.status === "running"}>
           {state.status === "running" ? "同步中" : "同步資料"}
+        </button>
+        <button type="button" disabled={state.status === "running"} onClick={() => void handleScore()}>
+          重新評分
         </button>
       </form>
       {state.status === "success" ? <p className="refresh-result">{`已更新候選股 ${state.candidateCount} 檔`}</p> : null}

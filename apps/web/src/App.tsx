@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
-import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest } from "./api";
+import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "./api";
 import { readStoredAdminToken } from "./adminToken";
 import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
@@ -48,6 +48,13 @@ function RadarRoute() {
 
   async function handleManualRefresh(adminToken: string) {
     const result = await triggerAdminIngest(adminToken);
+    const data = await loadDashboardData();
+    setState({ status: "ready", data });
+    return result;
+  }
+
+  async function handleManualScore(adminToken: string) {
+    const result = await triggerAdminScore(adminToken);
     const data = await loadDashboardData();
     setState({ status: "ready", data });
     return result;
@@ -107,7 +114,7 @@ function RadarRoute() {
         {state.status === "ready" ? (
           <>
             <SourceHealth runs={runs} />
-            <AdminRefreshPanel onRefresh={handleManualRefresh} />
+            <AdminRefreshPanel onRefresh={handleManualRefresh} onScore={handleManualScore} />
             <RadarTable
               candidates={candidates}
               filters={filters}

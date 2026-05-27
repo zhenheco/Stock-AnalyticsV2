@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { removeWatchlistEntry, triggerAdminIngest } from "../src/api";
+import { removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "../src/api";
 
 describe("api", () => {
   afterEach(() => {
@@ -34,6 +34,22 @@ describe("api", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/watchlist/2330", {
       method: "DELETE",
+      headers: {
+        "x-admin-token": "secret-token"
+      }
+    });
+  });
+
+  it("triggers admin scoring with the token only in the request header", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ candidateCount: 9 }), {
+      headers: { "content-type": "application/json" }
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(triggerAdminScore("secret-token")).resolves.toEqual({ candidateCount: 9 });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/run-score", {
+      method: "POST",
       headers: {
         "x-admin-token": "secret-token"
       }

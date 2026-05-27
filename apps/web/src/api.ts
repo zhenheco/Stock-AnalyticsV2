@@ -64,6 +64,15 @@ export async function triggerAdminIngest(adminToken: string): Promise<{ candidat
   });
 }
 
+export async function triggerAdminScore(adminToken: string): Promise<{ candidateCount: number }> {
+  return fetchJson<{ candidateCount: number }>("/api/admin/run-score", {
+    method: "POST",
+    headers: {
+      "x-admin-token": adminToken
+    }
+  });
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
