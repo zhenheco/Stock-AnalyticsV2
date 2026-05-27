@@ -122,6 +122,40 @@ describe("worker routes", () => {
     ]));
   });
 
+  it("uses the newest candidate event time for data readiness updatedAt", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({
+      symbol: String(1000 + index),
+      name: `公司${index}`,
+      securityType: "stock" as const,
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    })));
+    await repo.saveCandidates([
+      candidate({
+        symbol: "2330",
+        score: 9.2,
+        latestAt: "2026-05-27T02:00:00.000Z"
+      }),
+      candidate({
+        symbol: "2328",
+        score: 4.8,
+        latestAt: "2026-05-27T08:30:00.000Z"
+      })
+    ]);
+    await repo.saveSourceRuns([
+      sourceRun({ source: "rss", status: "ok", itemCount: 50, startedAt: "2026-05-27T08:00:00.000Z" }),
+      sourceRun({ source: "ptt", status: "ok", itemCount: 10, startedAt: "2026-05-27T08:00:00.000Z" }),
+      sourceRun({ source: "finmind", status: "ok", itemCount: 4274, startedAt: "2026-05-27T08:00:00.000Z" })
+    ]);
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T09:00:00.000Z" });
+
+    const response = await app.fetch(new Request("https://api.test/api/data-readiness"));
+    const body = await response.json() as { updatedAt: string };
+
+    expect(response.status).toBe(200);
+    expect(body.updatedAt).toBe("2026-05-27T08:30:00.000Z");
+  });
+
   it("marks anonymous FinMind price, chip, and revenue data as degraded instead of missing", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse(Array.from({ length: 1200 }, (_, index) => ({

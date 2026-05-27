@@ -248,7 +248,7 @@ async function dataReadiness(repo: Repository, now: string): Promise<DataReadine
 
   return {
     status: overallReadiness(checks),
-    updatedAt: candidates[0]?.latestAt ?? latestRuns[0]?.startedAt ?? null,
+    updatedAt: latestCandidateTime(candidates) ?? latestRuns[0]?.startedAt ?? null,
     counts: {
       candidates: candidates.length,
       universe: universeCount,
