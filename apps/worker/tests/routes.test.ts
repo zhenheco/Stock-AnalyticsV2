@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SourceRun } from "@stock-analytics/shared";
+import type { Candidate, SourceRun } from "@stock-analytics/shared";
 import { createApp } from "../src/app";
 import { MemoryRepository } from "../src/repository/memory";
 import { signIngestBody } from "../src/security";
@@ -29,6 +29,29 @@ describe("worker routes", () => {
     expect(response.status).toBe(200);
     expect(body.candidates).toHaveLength(1);
     expect(body.updatedAt).toBe("2026-05-27T02:00:00.000Z");
+  });
+
+  it("returns the newest candidate event time as candidates update metadata", async () => {
+    const repo = new MemoryRepository();
+    await repo.saveCandidates([
+      candidate({
+        symbol: "2330",
+        score: 9.2,
+        latestAt: "2026-05-27T02:00:00.000Z"
+      }),
+      candidate({
+        symbol: "2328",
+        score: 4.8,
+        latestAt: "2026-05-27T08:30:00.000Z"
+      })
+    ]);
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T09:00:00.000Z" });
+
+    const response = await app.fetch(new Request("https://api.test/api/candidates"));
+    const body = await response.json() as { updatedAt: string };
+
+    expect(response.status).toBe(200);
+    expect(body.updatedAt).toBe("2026-05-27T08:30:00.000Z");
   });
 
   it("returns recent source health runs", async () => {
@@ -517,6 +540,22 @@ function sourceRun(overrides: Partial<SourceRun>): SourceRun {
     startedAt: "2026-05-27T05:00:00.000Z",
     finishedAt: "2026-05-27T05:00:01.000Z",
     itemCount: 1,
+    ...overrides
+  };
+}
+
+function candidate(overrides: Partial<Candidate>): Candidate {
+  return {
+    symbol: "2330",
+    name: "台積電",
+    score: 8.4,
+    eventCount: 2,
+    sourceCount: 2,
+    latestTitle: "台積電先進封裝需求升溫",
+    latestAt: "2026-05-27T02:00:00.000Z",
+    sources: ["ptt", "rss"],
+    tags: ["AI"],
+    reason: "新聞與討論同步升溫",
     ...overrides
   };
 }

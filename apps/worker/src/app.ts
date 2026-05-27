@@ -72,7 +72,7 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     const candidates = await options.repo.listCandidates();
     return json({
       candidates,
-      updatedAt: candidates[0]?.latestAt ?? null
+      updatedAt: latestCandidateTime(candidates)
     });
   }
 
@@ -200,6 +200,15 @@ function eventClassifier(options: AppOptions): EventClassifier | undefined {
     return undefined;
   }
   return createWorkersAiClassifier(options.ai, options.classifierModel);
+}
+
+function latestCandidateTime(candidates: Array<{ latestAt: string }>): string | null {
+  return candidates.reduce<string | null>((latest, candidate) => {
+    if (!candidate.latestAt) {
+      return latest;
+    }
+    return !latest || candidate.latestAt > latest ? candidate.latestAt : latest;
+  }, null);
 }
 
 function requireAdmin(request: Request, adminToken?: string): Response | null {
