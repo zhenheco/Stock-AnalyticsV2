@@ -38,7 +38,7 @@ Environment config:
 - `FINMIND_TOKEN` - 1Password reference locally, Cloudflare secret in production.
 - `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price fetching. Defaults to `20`, capped at `50`.
-- `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news plus a Google News Taiwan-stock search feed.
+- `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news because it has been stable from Cloudflare Workers; add extra feeds only after smoke-testing them from Worker.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
