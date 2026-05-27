@@ -213,6 +213,60 @@ describe("runIngestion", () => {
     await expect(repo.listCandidates()).resolves.toEqual([]);
   });
 
+  it("drops stale events whose stored symbol only came from a percentage figure", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([
+      {
+        symbol: "3037",
+        name: "欣興",
+        market: "上市",
+        industry: "電子零組件業",
+        securityType: "stock",
+        updatedAt: "2026-05-27T05:00:00.000Z"
+      },
+      {
+        symbol: "4725",
+        name: "信昌化",
+        market: "上市",
+        industry: "化學工業",
+        securityType: "stock",
+        updatedAt: "2026-05-27T05:00:00.000Z"
+      }
+    ]);
+    await repo.saveEvents([
+      {
+        id: "ptt:3037:https://ptt.test/1",
+        source: "ptt",
+        symbol: "3037",
+        title: "[情報] 3037 欣興 4月自結 1.85 年增:4725%",
+        url: "https://ptt.test/1",
+        publishedAt: "2026-05-27T00:00:00.000+08:00",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件，可信但催化程度較低"
+      },
+      {
+        id: "ptt:4725:https://ptt.test/1",
+        source: "ptt",
+        symbol: "4725",
+        title: "[情報] 3037 欣興 4月自結 1.85 年增:4725%",
+        url: "https://ptt.test/1",
+        publishedAt: "2026-05-27T00:00:00.000+08:00",
+        engagement: 0,
+        tags: ["公告"],
+        sentiment: 2,
+        reason: "公告事件，可信但催化程度較低"
+      }
+    ]);
+
+    await recomputeCandidates(repo);
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "3037", name: "欣興" })
+    ]);
+  });
+
   it("classifies formal announcements separately from research catalysts", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse([

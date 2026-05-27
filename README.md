@@ -18,6 +18,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 - `GET /api/source-runs`
 - `GET /api/universe?limit=0`
 - `POST /api/watchlist` with `x-admin-token`
+- `DELETE /api/watchlist/:symbol` with `x-admin-token`
 - `POST /api/admin/run-ingest` with `x-admin-token`
 - `POST /api/admin/run-score` with `x-admin-token`
 - `POST /api/ingest/social` with `x-ingest-signature: sha256=<hmac>`
@@ -29,6 +30,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 Live ingestion currently connects:
 
 - FinMind `TaiwanStockPrice` through `https://api.finmindtrade.com/api/v4/data`, one configured symbol at a time.
+- FinMind `TaiwanStockInstitutionalInvestorsBuySell` and `TaiwanStockMarginPurchaseShortSale` for lightweight chip events when `FINMIND_TOKEN` is configured.
 - FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token; price rows still require `FINMIND_TOKEN`.
 - PTT Stock board title page, with `over18=1` cookie and title-level extraction only.
 - Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
@@ -37,22 +39,23 @@ Environment config:
 
 - `FINMIND_TOKEN` - 1Password reference locally, Cloudflare secret in production.
 - `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
-- `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price fetching. Defaults to `20`, capped at `50`.
+- `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news because it has been stable from Cloudflare Workers; add extra feeds only after smoke-testing them from Worker.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
 
 Entity extraction uses explicit stock codes plus universe-backed company aliases. Longer overlapping aliases win, so a title mentioning `聯發科` does not also create a false hit for `聯發`.
+Percentage figures are removed before numeric symbol extraction, so a title such as `年增:4725%` does not create a false `4725` candidate.
 
-FinMind price ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. FinMind price rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
+FinMind price/chip ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. FinMind rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
 
 Scoring favors research catalysts such as AI, industry demand, revenue, and price/volume events. Formal announcements are still retained as evidence but are discounted so they do not crowd out stronger research signals.
 
 ## Dashboard
 
 - Radar page shows candidate stocks and source health.
-- Stock detail page shows event evidence and links out to TradingView instead of storing full historical price data.
+- Stock detail page shows event evidence, watchlist controls, and links out to TradingView instead of storing full historical price data.
 - Watchlist page includes a personal add form. The admin token is sent as `x-admin-token` and cached in browser local storage for convenience.
 
 ## Development

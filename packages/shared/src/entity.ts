@@ -53,7 +53,8 @@ export function extractMentionedSymbols(
 function stripDateLikeText(text: string): string {
   return text
     .replace(/\b20\d{2}[/.-]\d{1,2}[/.-]\d{1,2}\b/g, " ")
-    .replace(/\b19\d{2}[/.-]\d{1,2}[/.-]\d{1,2}\b/g, " ");
+    .replace(/\b19\d{2}[/.-]\d{1,2}[/.-]\d{1,2}\b/g, " ")
+    .replace(/(^|[^\d.])\d{1,6}(?:,\d{3})*(?:\.\d+)?\s*[％%]/g, "$1 ");
 }
 
 function appendUnique(symbol: string, seen: Set<string>, results: string[]): void {

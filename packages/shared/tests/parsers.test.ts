@@ -44,6 +44,22 @@ describe("parsePttTitles", () => {
       })
     ]);
   });
+
+  it("does not treat percentage figures in PTT titles as stock symbols", () => {
+    const html = `
+      <div class="r-ent">
+        <div class="title"><a href="/bbs/Stock/M.4.html">[情報] 3037 欣興 4月自結 1.85 年增:4725%</a></div>
+        <div class="meta"><div class="date"> 5/27</div></div>
+      </div>
+    `;
+
+    expect(parsePttTitles(html, "https://www.ptt.cc", {}, new Set(["3037", "4725"]))).toEqual([
+      expect.objectContaining({
+        title: "[情報] 3037 欣興 4月自結 1.85 年增:4725%",
+        symbols: ["3037"]
+      })
+    ]);
+  });
 });
 
 describe("parseRssItems", () => {

@@ -1,4 +1,5 @@
 import {
+  extractMentionedSymbols,
   normalizeFinMindRows,
   normalizeFinMindStockInfoRows,
   parsePttTitles,
@@ -58,10 +59,15 @@ export async function persistSourceEvents(repo: Repository, sourceEvents: Source
 }
 
 export async function recomputeCandidates(repo: Repository, names: Record<string, string> = {}): Promise<void> {
-  const events = (await repo.listEvents()).map(reclassifyEventRecord);
+  const universe = await repo.listUniverse();
+  const aliases = buildAliasMap(universe);
+  const validSymbols = new Set(universe.map((stock) => stock.symbol));
+  const events = (await repo.listEvents())
+    .filter((event) => isEventSymbolStillSupported(event, aliases, validSymbols))
+    .map(reclassifyEventRecord);
   await repo.saveEvents(events);
   const candidates = scoreCandidates(events, {
-    ...(await listUniverseNames(repo)),
+    ...Object.fromEntries(universe.map((stock) => [stock.symbol, stock.name])),
     ...names
   });
   await repo.saveCandidates(candidates);
@@ -93,6 +99,13 @@ function reclassifyEventRecord(event: EventRecord): EventRecord {
     sentiment: classification.sentiment,
     reason: classification.reason
   };
+}
+
+function isEventSymbolStillSupported(event: EventRecord, aliases: Record<string, string>, validSymbols: ReadonlySet<string>): boolean {
+  if (!validSymbols.has(event.symbol)) {
+    return true;
+  }
+  return extractMentionedSymbols(event.title, aliases, validSymbols).includes(event.symbol);
 }
 
 function classifyEvent(title: string, source: SourceEvent["source"]): { sentiment: number; tags: string[]; reason: string } {
