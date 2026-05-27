@@ -78,6 +78,23 @@ pnpm dev
 
 For local secret injection, use 1Password references via `op run --env-file=.env -- <command>`. Do not commit raw secrets.
 
+## FinMind Secret Sync
+
+FinMind price/chip ingestion needs a non-empty `op://Dev/stock-analytics-v2/FINMIND_TOKEN`.
+The helper below reports only token presence/length, never the token value:
+
+```bash
+pnpm check:finmind-secret
+```
+
+After the 1Password item is filled, sync it into Cloudflare and run a production ingestion smoke:
+
+```bash
+pnpm sync:finmind-secret
+```
+
+Expected final readiness is `finmind-signals=ready`. If the token is still empty, the script exits before touching Cloudflare secrets.
+
 ## Deployment
 
 ```bash
@@ -97,6 +114,7 @@ Production smoke endpoints:
 
 ```bash
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/candidates
+curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/data-readiness
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
 curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=0"
 ```
