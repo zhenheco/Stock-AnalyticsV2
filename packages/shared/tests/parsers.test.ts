@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFinMindStockInfoRows, parsePttTitles, parseRssItems } from "../src/parsers";
+import { normalizeFinMindRows, normalizeFinMindStockInfoRows, parsePttTitles, parseRssItems } from "../src/parsers";
 
 describe("parsePttTitles", () => {
   it("extracts title, url, push count, published time, and mentioned symbols", () => {
@@ -171,6 +171,23 @@ describe("normalizeFinMindStockInfoRows", () => {
         industry: "ETF",
         securityType: "etf",
         updatedAt: "2026-05-27T05:00:00.000Z"
+      }
+    ]);
+  });
+});
+
+describe("normalizeFinMindRows", () => {
+  it("uses stock_id as the symbol without treating volume as another stock code", () => {
+    expect(normalizeFinMindRows([
+      { stock_id: "2317", stock_name: "鴻海", close: 180, Trading_Volume: 1000 }
+    ], "2026-05-27T05:00:00.000Z")).toEqual([
+      {
+        source: "finmind",
+        title: "2317 鴻海 close 180 volume 1000",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=2317",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 1000,
+        symbols: ["2317"]
       }
     ]);
   });

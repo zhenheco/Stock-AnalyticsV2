@@ -37,12 +37,15 @@ Environment config:
 
 - `FINMIND_TOKEN` - 1Password reference locally, Cloudflare secret in production.
 - `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
+- `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price fetching. Defaults to `20`, capped at `50`.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news plus a Google News Taiwan-stock search feed.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
 
 Entity extraction uses explicit stock codes plus universe-backed company aliases. Longer overlapping aliases win, so a title mentioning `聯發科` does not also create a false hit for `聯發`.
+
+FinMind price ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. FinMind price rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
 
 Scoring favors research catalysts such as AI, industry demand, revenue, and price/volume events. Formal announcements are still retained as evidence but are discounted so they do not crowd out stronger research signals.
 

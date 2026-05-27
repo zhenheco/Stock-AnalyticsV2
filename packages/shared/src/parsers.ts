@@ -71,19 +71,19 @@ export function countRssItems(xml: string): number {
 
 export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEvent[] {
   return rows.flatMap((row) => {
-    const title = `${row.stock_id} ${row.stock_name ?? row.stock_id} close ${row.close ?? "N/A"} volume ${row.Trading_Volume ?? 0}`;
-    const symbols = extractMentionedSymbols(title);
-    if (symbols.length === 0) {
+    const symbol = normalizeSymbol(row.stock_id);
+    if (!/^\d{4,6}[A-Z]?$/.test(symbol)) {
       return [];
     }
+    const title = `${symbol} ${row.stock_name ?? symbol} close ${row.close ?? "N/A"} volume ${row.Trading_Volume ?? 0}`;
 
     return [{
       source: "finmind" as const,
       title,
-      url: `https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=${row.stock_id}`,
+      url: `https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=${symbol}`,
       publishedAt: now,
       engagement: Number(row.Trading_Volume ?? 0),
-      symbols
+      symbols: [symbol]
     }];
   });
 }

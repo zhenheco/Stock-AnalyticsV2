@@ -196,6 +196,44 @@ describe("worker routes", () => {
     expect(body.candidateCount).toBe(1);
   });
 
+  it("includes watchlist symbols when fetching live FinMind prices", async () => {
+    const repo = new MemoryRepository();
+    await repo.addWatchlist({ symbol: "2317", name: "鴻海" });
+    const requestedSymbols: string[] = [];
+    const app = createApp({
+      repo,
+      adminToken: "secret",
+      sourceEnv: {
+        FINMIND_TOKEN: "token",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("TaiwanStockInfo")) {
+          return new Response(JSON.stringify({ data: [{ stock_id: "2317", stock_name: "鴻海", type: "twse" }] }));
+        }
+        if (url.includes("TaiwanStockPrice")) {
+          const symbol = new URL(url).searchParams.get("data_id") ?? "";
+          requestedSymbols.push(symbol);
+          return new Response(JSON.stringify({ data: [{ stock_id: symbol, stock_name: "鴻海", close: 180, Trading_Volume: 1000 }] }));
+        }
+        return new Response("");
+      }
+    });
+
+    const response = await app.fetch(new Request("https://api.test/api/admin/run-ingest", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-token": "secret" },
+      body: JSON.stringify({})
+    }));
+    const body = await response.json() as { candidateCount: number };
+
+    expect(requestedSymbols).toEqual(["2317"]);
+    expect(response.status).toBe(202);
+    expect(body.candidateCount).toBe(1);
+  });
+
   it("recomputes candidates from stored events through an admin endpoint", async () => {
     const repo = new MemoryRepository();
     await repo.saveEvents([{

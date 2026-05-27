@@ -11,6 +11,7 @@ import type { IngestionSources } from "../ingest";
 export interface SourceEnv {
   FINMIND_TOKEN?: string;
   FINMIND_SYMBOLS?: string;
+  FINMIND_DYNAMIC_SYMBOL_LIMIT?: string;
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   PTT_STOCK_URL?: string;
@@ -19,6 +20,7 @@ export interface SourceEnv {
 export interface FetchLiveSourcesInput {
   now: string;
   env: SourceEnv;
+  finmindSymbols?: string[];
   fetcher?: typeof fetch;
 }
 
@@ -50,7 +52,7 @@ export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<Li
       countItems: (body) => parsePttTitles(body).length
     }),
     fetchRssSources(fetcher, input.env, input.now),
-    fetchFinMindSources(fetcher, input.env, input.now)
+    fetchFinMindSources(fetcher, input.env, input.now, input.finmindSymbols ?? [])
   ]);
 
   return {
@@ -92,10 +94,11 @@ async function fetchRssSources(fetcher: typeof fetch, env: SourceEnv, now: strin
 async function fetchFinMindSources(
   fetcher: typeof fetch,
   env: SourceEnv,
-  now: string
+  now: string,
+  dynamicSymbols: string[]
 ): Promise<{ rows: FinMindRow[]; stockInfoRows: FinMindStockInfoRow[]; run: SourceRun }> {
   const startedAt = now;
-  const symbols = parseSymbols(env.FINMIND_SYMBOLS);
+  const symbols = mergeSymbols(parseSymbols(env.FINMIND_SYMBOLS), dynamicSymbols, parseSymbolLimit(env.FINMIND_DYNAMIC_SYMBOL_LIMIT));
 
   const [stockInfoRows, rows] = await Promise.all([
     fetchFinMindStockInfoRows(fetcher, env.FINMIND_TOKEN),
@@ -196,6 +199,21 @@ function parseSymbols(value: string | undefined): string[] {
     .split(",")
     .map((symbol) => symbol.trim())
     .filter((symbol) => /^\d{4,6}[A-Z]?$/.test(symbol));
+}
+
+function mergeSymbols(configured: string[], dynamic: string[], limit: number): string[] {
+  const symbols = [...configured, ...dynamic]
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter((symbol) => /^\d{4,6}[A-Z]?$/.test(symbol));
+  return [...new Set(symbols)].slice(0, limit);
+}
+
+function parseSymbolLimit(value: string | undefined): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 20;
+  }
+  return Math.min(Math.max(Math.trunc(parsed), 1), 50);
 }
 
 function parseRssUrls(env: SourceEnv): string[] {

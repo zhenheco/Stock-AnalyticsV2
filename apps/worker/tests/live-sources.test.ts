@@ -149,6 +149,40 @@ describe("fetchLiveSources", () => {
       expect.objectContaining({ source: "finmind", status: "partial", itemCount: 1 })
     ]));
   });
+
+  it("merges configured and dynamic FinMind symbols for price fetching", async () => {
+    const requestedSymbols: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        FINMIND_TOKEN: "token",
+        FINMIND_SYMBOLS: "2330,2330",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      finmindSymbols: ["2317", "bad", "2330"],
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        if (url.includes("TaiwanStockPrice")) {
+          const symbol = new URL(url).searchParams.get("data_id") ?? "";
+          requestedSymbols.push(symbol);
+          return jsonResponse({
+            data: [{ stock_id: symbol, stock_name: symbol, close: 100, Trading_Volume: 10 }]
+          });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(requestedSymbols).toEqual(["2330", "2317"]);
+    expect(result.sources.finmindRows).toHaveLength(2);
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 2 })
+    ]));
+  });
 });
 
 function jsonResponse(body: unknown): Response {

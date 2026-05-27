@@ -18,6 +18,8 @@ export interface WorkerEnv {
   INGEST_WEBHOOK_TOKEN?: string;
   FINMIND_TOKEN?: string;
   FINMIND_SYMBOLS?: string;
+  FINMIND_DYNAMIC_SYMBOL_LIMIT?: string;
+  RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   PTT_STOCK_URL?: string;
 }
@@ -110,6 +112,7 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     const liveResult = body.sources ? undefined : await fetchLiveSources({
       now,
       env: options.sourceEnv ?? {},
+      finmindSymbols: await listDynamicFinMindSymbols(options.repo),
       fetcher: options.fetcher
     });
     await runIngestion({
@@ -280,5 +283,16 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       finishedAt: now,
       itemCount: finmindItemCount
     }] : [])
+  ];
+}
+
+async function listDynamicFinMindSymbols(repo: Repository): Promise<string[]> {
+  const [watchlist, candidates] = await Promise.all([
+    repo.listWatchlist(),
+    repo.listCandidates()
+  ]);
+  return [
+    ...watchlist.map((item) => item.symbol),
+    ...candidates.map((candidate) => candidate.symbol)
   ];
 }
