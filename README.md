@@ -6,7 +6,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 
 ## Apps
 
-- `apps/worker` - Cloudflare Worker API, D1 migration, ingestion, scoring, HMAC social ingest.
+- `apps/worker` - Cloudflare Worker API, D1 migration, ingestion, lightweight Workers AI classification, scoring, HMAC social ingest.
 - `apps/web` - React/Vite dashboard for event candidates, stock research, and watchlist.
 - `packages/shared` - shared parsers, entity extraction, types, scoring, and LLM output validation.
 
@@ -34,6 +34,7 @@ Live ingestion currently connects:
 - FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token; price rows still require `FINMIND_TOKEN`.
 - PTT Stock board title page, with `over18=1` cookie and title-level extraction only.
 - Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
+- Optional Workers AI lightweight classification for short PTT/RSS event titles.
 
 Environment config:
 
@@ -42,6 +43,9 @@ Environment config:
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS fallback feeds. The production default uses Yahoo Taiwan stock news because it has been stable from Cloudflare Workers; add extra feeds only after smoke-testing them from Worker.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
+- `LLM_CLASSIFIER_ENABLED` - set to `true` to use the Cloudflare Workers AI binding for short-text event classification.
+- `LLM_CLASSIFIER_MODEL` - Workers AI chat model. Defaults to `@cf/meta/llama-3.1-8b-instruct`.
+- `LLM_CLASSIFIER_LIMIT` - maximum non-FinMind events to classify per ingestion or scoring run. Defaults to `20`, capped at `50`.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
 
@@ -49,6 +53,8 @@ Entity extraction uses explicit stock codes plus universe-backed company aliases
 Percentage figures are removed before numeric symbol extraction, so a title such as `年增:4725%` does not create a false `4725` candidate.
 
 FinMind price/chip ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. FinMind rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
+
+Classification stores only lightweight fields: sentiment `1-5`, up to three event tags, and one short reason. If Workers AI is unavailable, invalid, over limit, or the event is structured FinMind data, ingestion falls back to the deterministic classifier.
 
 Scoring favors research catalysts such as AI, industry demand, revenue, and price/volume events. Formal announcements are still retained as evidence but are discounted so they do not crowd out stronger research signals.
 

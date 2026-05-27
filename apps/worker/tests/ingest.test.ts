@@ -87,6 +87,39 @@ describe("runIngestion", () => {
     ]);
   });
 
+  it("uses an optional lightweight classifier for stored event tags and reasons", async () => {
+    const repo = new MemoryRepository();
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        rssXml: `
+          <rss><channel><item>
+            <title>台積電 2330 AI 供應鏈訂單升溫</title>
+            <link>https://news.test/tsmc-ai</link>
+            <pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate>
+          </item></channel></rss>
+        `
+      },
+      classifier: {
+        classify: async () => ({
+          sentiment: 5,
+          tags: ["AI", "供應鏈"],
+          reason: "LLM 判斷為 AI 供應鏈事件"
+        })
+      }
+    });
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({
+        sentiment: 5,
+        tags: ["AI", "供應鏈"],
+        reason: "LLM 判斷為 AI 供應鏈事件"
+      })
+    ]);
+  });
+
   it("only updates currently relevant universe symbols after the initial bootstrap", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse([{

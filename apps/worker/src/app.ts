@@ -3,6 +3,7 @@ import type { Repository } from "./repository/types";
 import { persistSourceEvents, recomputeCandidates, runIngestion, type IngestionSources } from "./ingest";
 import { verifyIngestSignature } from "./security";
 import { fetchLiveSources, type SourceEnv } from "./sources/live";
+import { createWorkersAiClassifier, isClassifierEnabled, parseClassifierLimit, type EventClassifier, type WorkersAiBinding } from "./classifier";
 
 interface AppOptions {
   repo: Repository;
@@ -10,6 +11,10 @@ interface AppOptions {
   ingestToken?: string;
   sourceEnv?: SourceEnv;
   fetcher?: typeof fetch;
+  ai?: WorkersAiBinding;
+  classifierEnabled?: boolean;
+  classifierModel?: string;
+  classifierLimit?: number;
 }
 
 export interface WorkerEnv {
@@ -22,6 +27,10 @@ export interface WorkerEnv {
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   PTT_STOCK_URL?: string;
+  AI?: WorkersAiBinding;
+  LLM_CLASSIFIER_ENABLED?: string;
+  LLM_CLASSIFIER_MODEL?: string;
+  LLM_CLASSIFIER_LIMIT?: string;
 }
 
 export function createApp(options: AppOptions) {
@@ -40,12 +49,17 @@ export function appFromEnv(env: WorkerEnv) {
     repo: new D1Repository(env.DB),
     adminToken: env.ADMIN_TOKEN,
     ingestToken: env.INGEST_WEBHOOK_TOKEN,
-    sourceEnv: env
+    sourceEnv: env,
+    ai: env.AI,
+    classifierEnabled: isClassifierEnabled(env.LLM_CLASSIFIER_ENABLED),
+    classifierModel: env.LLM_CLASSIFIER_MODEL,
+    classifierLimit: parseClassifierLimit(env.LLM_CLASSIFIER_LIMIT)
   });
 }
 
 async function handleRequest(request: Request, options: AppOptions): Promise<Response> {
   const url = new URL(request.url);
+  const classifier = eventClassifier(options);
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
@@ -132,7 +146,9 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     await runIngestion({
       repo: options.repo,
       now,
-      sources: body.sources ?? liveResult?.sources ?? {}
+      sources: body.sources ?? liveResult?.sources ?? {},
+      classifier,
+      classifierLimit: options.classifierLimit
     });
     await options.repo.saveSourceRuns(liveResult?.runs ?? deriveFixtureSourceRuns(body.sources ?? {}, now));
     return json({ candidateCount: (await options.repo.listCandidates()).length }, 202);
@@ -144,7 +160,10 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
       return denied;
     }
 
-    await recomputeCandidates(options.repo);
+    await recomputeCandidates(options.repo, {}, {
+      classifier,
+      classifierLimit: options.classifierLimit
+    });
     return json({ candidateCount: (await options.repo.listCandidates()).length }, 202);
   }
 
@@ -167,6 +186,13 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
   }
 
   return json({ error: "Not found" }, 404);
+}
+
+function eventClassifier(options: AppOptions): EventClassifier | undefined {
+  if (!options.classifierEnabled || !options.ai) {
+    return undefined;
+  }
+  return createWorkersAiClassifier(options.ai, options.classifierModel);
 }
 
 function requireAdmin(request: Request, adminToken?: string): Response | null {

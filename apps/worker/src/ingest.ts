@@ -10,6 +10,7 @@ import {
   type FinMindStockInfoRow,
   type SourceEvent
 } from "@stock-analytics/shared";
+import type { EventClassifier } from "./classifier";
 import type { Repository } from "./repository/types";
 
 export interface IngestionSources {
@@ -23,6 +24,8 @@ export interface IngestionInput {
   repo: Repository;
   now: string;
   sources: IngestionSources;
+  classifier?: EventClassifier;
+  classifierLimit?: number;
 }
 
 export async function runIngestion(input: IngestionInput): Promise<void> {
@@ -49,22 +52,38 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
     ...Object.fromEntries((input.sources.finmindRows ?? []).map((row) => [row.stock_id, row.stock_name ?? row.stock_id]))
   };
 
-  await persistSourceEvents(input.repo, sourceEvents, names);
+  await persistSourceEvents(input.repo, sourceEvents, names, {
+    classifier: input.classifier,
+    classifierLimit: input.classifierLimit
+  });
 }
 
-export async function persistSourceEvents(repo: Repository, sourceEvents: SourceEvent[], names: Record<string, string> = {}): Promise<void> {
-  const events = sourceEvents.flatMap((event) => expandSymbols(event));
+interface ClassificationOptions {
+  classifier?: EventClassifier;
+  classifierLimit?: number;
+  reclassify?: boolean;
+}
+
+export async function persistSourceEvents(
+  repo: Repository,
+  sourceEvents: SourceEvent[],
+  names: Record<string, string> = {},
+  options: ClassificationOptions = {}
+): Promise<void> {
+  const events = (await classifySourceEvents(sourceEvents, options)).flatMap(({ event, classification }) => expandSymbols(event, classification));
   await repo.saveEvents(events);
-  await recomputeCandidates(repo, names);
+  await recomputeCandidates(repo, names, { reclassify: false });
 }
 
-export async function recomputeCandidates(repo: Repository, names: Record<string, string> = {}): Promise<void> {
+export async function recomputeCandidates(repo: Repository, names: Record<string, string> = {}, options: ClassificationOptions = {}): Promise<void> {
   const universe = await repo.listUniverse();
   const aliases = buildAliasMap(universe);
   const validSymbols = new Set(universe.map((stock) => stock.symbol));
-  const events = (await repo.listEvents())
-    .filter((event) => isEventSymbolStillSupported(event, aliases, validSymbols))
-    .map(reclassifyEventRecord);
+  const supportedEvents = (await repo.listEvents())
+    .filter((event) => isEventSymbolStillSupported(event, aliases, validSymbols));
+  const events = options.reclassify === false
+    ? supportedEvents
+    : await reclassifyStoredEvents(supportedEvents, options);
   await repo.saveEvents(events);
   const candidates = scoreCandidates(events, {
     ...Object.fromEntries(universe.map((stock) => [stock.symbol, stock.name])),
@@ -73,9 +92,8 @@ export async function recomputeCandidates(repo: Repository, names: Record<string
   await repo.saveCandidates(candidates);
 }
 
-export function expandSymbols(event: SourceEvent): EventRecord[] {
+export function expandSymbols(event: SourceEvent, classification = classifyEvent(event.title, event.source)): EventRecord[] {
   return event.symbols.map((symbol) => {
-    const classification = classifyEvent(event.title, event.source);
     return {
       id: `${event.source}:${symbol}:${event.url}`,
       source: event.source,
@@ -91,14 +109,59 @@ export function expandSymbols(event: SourceEvent): EventRecord[] {
   });
 }
 
-function reclassifyEventRecord(event: EventRecord): EventRecord {
-  const classification = classifyEvent(event.title, event.source);
-  return {
-    ...event,
-    tags: classification.tags,
-    sentiment: classification.sentiment,
-    reason: classification.reason
-  };
+async function classifySourceEvents(
+  sourceEvents: SourceEvent[],
+  options: ClassificationOptions
+): Promise<Array<{ event: SourceEvent; classification: ReturnType<typeof classifyEvent> }>> {
+  let llmCount = 0;
+  const limit = options.classifierLimit ?? 20;
+  return Promise.all(sourceEvents.map(async (event) => {
+    const useLlm = Boolean(options.classifier && event.source !== "finmind" && llmCount < limit);
+    if (useLlm) {
+      llmCount += 1;
+    }
+    const classification = await classifyWithFallback(event, options, useLlm);
+    return { event, classification };
+  }));
+}
+
+async function reclassifyStoredEvents(events: EventRecord[], options: ClassificationOptions): Promise<EventRecord[]> {
+  let llmCount = 0;
+  const limit = options.classifierLimit ?? 20;
+  return Promise.all(events.map(async (event) => {
+    const useLlm = Boolean(options.classifier && event.source !== "finmind" && llmCount < limit);
+    if (useLlm) {
+      llmCount += 1;
+    }
+    const classification = await classifyWithFallback(event, options, useLlm);
+    return {
+      ...event,
+      tags: classification.tags,
+      sentiment: classification.sentiment,
+      reason: classification.reason
+    };
+  }));
+}
+
+async function classifyWithFallback(
+  event: Pick<SourceEvent, "source" | "title" | "engagement">,
+  options: ClassificationOptions,
+  canUseLlm: boolean
+): Promise<ReturnType<typeof classifyEvent>> {
+  const fallback = classifyEvent(event.title, event.source);
+  if (!options.classifier || !canUseLlm || event.source === "finmind") {
+    return fallback;
+  }
+  try {
+    const classification = await options.classifier.classify(event);
+    return {
+      sentiment: classification.sentiment,
+      tags: classification.tags.length > 0 ? classification.tags : fallback.tags,
+      reason: classification.reason || fallback.reason
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function isEventSymbolStillSupported(event: EventRecord, aliases: Record<string, string>, validSymbols: ReadonlySet<string>): boolean {

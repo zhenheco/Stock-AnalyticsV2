@@ -229,6 +229,49 @@ describe("worker routes", () => {
     expect(body.candidateCount).toBe(1);
   });
 
+  it("uses Workers AI for lightweight live event classification when configured", async () => {
+    const aiRequests: unknown[] = [];
+    const repo = new MemoryRepository();
+    const app = createApp({
+      repo,
+      adminToken: "secret",
+      sourceEnv: {
+        RSS_FEED_URL: "https://rss.test/feed.xml"
+      },
+      ai: {
+        run: async (_model: string, input: unknown) => {
+          aiRequests.push(input);
+          return {
+            response: JSON.stringify({
+              sentiment: 5,
+              tags: ["AI", "供應鏈"],
+              reason: "Workers AI 短文本分類"
+            })
+          };
+        }
+      },
+      classifierEnabled: true,
+      classifierLimit: 5,
+      fetcher: async () => new Response("<rss><channel><item><title>台積電 2330 AI 訂單升溫</title><link>https://news.test/1</link><pubDate>Wed, 27 May 2026 04:00:00 GMT</pubDate></item></channel></rss>")
+    });
+
+    const response = await app.fetch(new Request("https://api.test/api/admin/run-ingest", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-token": "secret" },
+      body: JSON.stringify({})
+    }));
+
+    expect(response.status).toBe(202);
+    expect(aiRequests).toHaveLength(1);
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({
+        sentiment: 5,
+        tags: ["AI", "供應鏈"],
+        reason: "Workers AI 短文本分類"
+      })
+    ]);
+  });
+
   it("includes watchlist symbols when fetching live FinMind prices", async () => {
     const repo = new MemoryRepository();
     await repo.addWatchlist({ symbol: "2317", name: "鴻海" });
