@@ -17,6 +17,39 @@ export function summarizeProductionHealth({ page, readiness, candidates, finmind
   ];
 }
 
+export function productionHealthGate(input) {
+  const reasons = [];
+  const topCandidate = input.candidates.candidates[0];
+
+  if (input.page.status !== 200) {
+    reasons.push(`pages=${input.page.status}`);
+  }
+  if (!extractAsset(input.page.html, "js")) {
+    reasons.push("pages bundle missing");
+  }
+  if (!extractAsset(input.page.html, "css")) {
+    reasons.push("pages css missing");
+  }
+  if (input.readiness.status !== "ready") {
+    reasons.push(`readiness=${input.readiness.status}`);
+  }
+  for (const check of input.readiness.checks) {
+    if (check.status !== "ready") {
+      reasons.push(`${check.id}=${check.status}`);
+    }
+  }
+  if (!topCandidate) {
+    reasons.push("top candidate missing");
+  } else if (!topCandidate.sourceEventCounts || Object.keys(topCandidate.sourceEventCounts).length === 0) {
+    reasons.push("top candidate source counts missing");
+  }
+  if (!input.finmindToken) {
+    reasons.push("FINMIND_TOKEN missing");
+  }
+
+  return { ok: reasons.length === 0, reasons };
+}
+
 function formatPagesLine(page) {
   return [
     `PAGES status=${page.status}`,
@@ -77,6 +110,7 @@ function completionPercent(readiness) {
 
 async function main(argv) {
   const skipSecret = argv.includes("--skip-secret");
+  const requireReady = argv.includes("--require-ready");
   const finmindRef = process.env.FINMIND_TOKEN_REF ?? DEFAULT_FINMIND_REF;
 
   const [page, readiness, candidates, finmindToken] = await Promise.all([
@@ -86,8 +120,16 @@ async function main(argv) {
     skipSecret ? "" : readOp(finmindRef)
   ]);
 
-  for (const line of summarizeProductionHealth({ page, readiness, candidates, finmindToken })) {
+  const health = { page, readiness, candidates, finmindToken };
+  for (const line of summarizeProductionHealth(health)) {
     console.log(line);
+  }
+  if (requireReady) {
+    const gate = productionHealthGate(health);
+    if (!gate.ok) {
+      throw new Error(`PRODUCTION_NOT_READY ${gate.reasons.join("; ")}`);
+    }
+    console.log("PRODUCTION_READY");
   }
 }
 

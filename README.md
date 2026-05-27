@@ -116,6 +116,7 @@ Production smoke endpoints:
 
 ```bash
 pnpm check:production
+pnpm check:production:ready
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/candidates
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/data-readiness
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
@@ -123,6 +124,7 @@ curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=
 ```
 
 `pnpm check:production` checks the deployed Pages bundle, Worker readiness, top candidate source contribution counts, and FinMind token presence without printing raw secrets.
+`pnpm check:production:ready` runs the same checks and exits non-zero until all readiness checks, top candidate source counts, Pages assets, and FinMind token presence are ready.
 
 ## Deferred
 

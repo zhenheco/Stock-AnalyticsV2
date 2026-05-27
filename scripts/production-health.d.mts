@@ -28,3 +28,8 @@ export interface ProductionHealthInput {
 }
 
 export function summarizeProductionHealth(input: ProductionHealthInput): string[];
+
+export function productionHealthGate(input: ProductionHealthInput): {
+  ok: boolean;
+  reasons: string[];
+};
