@@ -25,17 +25,19 @@ export interface IngestionInput {
 }
 
 export async function runIngestion(input: IngestionInput): Promise<void> {
-  const sourceEvents = [
-    ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml) : []),
-    ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml) : []),
-    ...(input.sources.finmindRows ? normalizeFinMindRows(input.sources.finmindRows, input.now) : [])
-  ];
-  const universe = input.sources.finmindStockInfoRows
+  const existingUniverse = await input.repo.listUniverse();
+  const incomingUniverse = input.sources.finmindStockInfoRows
     ? normalizeFinMindStockInfoRows(input.sources.finmindStockInfoRows, input.now)
     : [];
+  const aliases = buildAliasMap([...existingUniverse, ...incomingUniverse]);
+  const sourceEvents = [
+    ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases) : []),
+    ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases) : []),
+    ...(input.sources.finmindRows ? normalizeFinMindRows(input.sources.finmindRows, input.now) : [])
+  ];
   const relevantSymbols = collectRelevantSymbols(sourceEvents, input.sources.finmindRows ?? []);
-  const relevantUniverse = universe.filter((stock) => relevantSymbols.has(stock.symbol));
-  const universeToPersist = universe.length > 0 && await input.repo.countUniverse() === 0 ? universe : relevantUniverse;
+  const relevantUniverse = incomingUniverse.filter((stock) => relevantSymbols.has(stock.symbol));
+  const universeToPersist = incomingUniverse.length > 0 && await input.repo.countUniverse() === 0 ? incomingUniverse : relevantUniverse;
   if (universeToPersist.length > 0) {
     await input.repo.upsertUniverse(universeToPersist);
   }
@@ -105,4 +107,10 @@ function collectRelevantSymbols(sourceEvents: SourceEvent[], finmindRows: FinMin
     ...sourceEvents.flatMap((event) => event.symbols),
     ...finmindRows.map((row) => row.stock_id)
   ]);
+}
+
+function buildAliasMap(stocks: Array<{ symbol: string; name: string }>): Record<string, string> {
+  return Object.fromEntries(stocks
+    .filter((stock) => stock.name.trim().length >= 2)
+    .map((stock) => [stock.name.trim(), stock.symbol]));
 }

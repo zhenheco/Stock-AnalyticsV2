@@ -1,7 +1,7 @@
 import { extractMentionedSymbols } from "./entity";
 import type { FinMindRow, FinMindStockInfoRow, SecurityType, SourceEvent, UniverseStock } from "./types";
 
-export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc"): SourceEvent[] {
+export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc", aliases: Record<string, string> = {}): SourceEvent[] {
   const blocks = html
     .split('<div class="r-ent">')
     .slice(1)
@@ -15,7 +15,7 @@ export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc"): So
 
     const dateText = textContent(block.match(/<div class="date">([\s\S]*?)<\/div>/)?.[1] ?? "");
     const title = decodeHtml(textContent(titleMatch[2]));
-    const symbols = extractMentionedSymbols(title);
+    const symbols = extractMentionedSymbols(title, aliases);
     if (symbols.length === 0) {
       return [];
     }
@@ -31,14 +31,14 @@ export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc"): So
   });
 }
 
-export function parseRssItems(xml: string): SourceEvent[] {
+export function parseRssItems(xml: string, aliases: Record<string, string> = {}): SourceEvent[] {
   const blocks = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
 
   return blocks.flatMap((block) => {
     const title = decodeHtml(extractTag(block, "title"));
     const link = decodeHtml(extractTag(block, "link"));
     const published = extractTag(block, "pubDate");
-    const symbols = extractMentionedSymbols(title);
+    const symbols = extractMentionedSymbols(title, aliases);
     if (!title || !link || symbols.length === 0) {
       return [];
     }

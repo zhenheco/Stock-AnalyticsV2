@@ -69,6 +69,25 @@ describe("parseRssItems", () => {
       }
     ]);
   });
+
+  it("extracts symbols from configured company aliases when titles omit stock codes", () => {
+    const xml = `
+      <rss><channel>
+        <item>
+          <title>南帝乳膠產品報價升溫</title>
+          <link>https://example.com/news/2</link>
+          <pubDate>Wed, 27 May 2026 01:00:00 GMT</pubDate>
+        </item>
+      </channel></rss>
+    `;
+
+    expect(parseRssItems(xml, { 南帝: "2108" })).toEqual([
+      expect.objectContaining({
+        title: "南帝乳膠產品報價升溫",
+        symbols: ["2108"]
+      })
+    ]);
+  });
 });
 
 describe("normalizeFinMindStockInfoRows", () => {

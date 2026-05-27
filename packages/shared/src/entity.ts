@@ -13,7 +13,7 @@ const ALIASES: Record<string, string> = {
   元大台灣50: "0050"
 };
 
-export function extractMentionedSymbols(text: string): string[] {
+export function extractMentionedSymbols(text: string, aliases: Record<string, string> = {}): string[] {
   const normalizedText = stripDateLikeText(text);
   const seen = new Set<string>();
   const results: string[] = [];
@@ -22,10 +22,20 @@ export function extractMentionedSymbols(text: string): string[] {
     appendUnique(match[0], seen, results);
   }
 
-  for (const [alias, symbol] of Object.entries(ALIASES)) {
-    if (normalizedText.includes(alias)) {
-      appendUnique(symbol, seen, results);
+  const matchedRanges: Array<{ start: number; end: number }> = [];
+  const acceptedAliases: Array<{ start: number; symbol: string }> = [];
+  const sortedAliases = Object.entries({ ...ALIASES, ...aliases })
+    .filter(([alias]) => alias.trim().length > 0)
+    .sort(([left], [right]) => right.length - left.length);
+  for (const [alias, symbol] of sortedAliases) {
+    const start = normalizedText.indexOf(alias);
+    if (start >= 0 && !overlapsMatchedRange(start, start + alias.length, matchedRanges)) {
+      matchedRanges.push({ start, end: start + alias.length });
+      acceptedAliases.push({ start, symbol });
     }
+  }
+  for (const match of acceptedAliases.sort((left, right) => left.start - right.start)) {
+    appendUnique(match.symbol, seen, results);
   }
 
   return results;
@@ -42,4 +52,8 @@ function appendUnique(symbol: string, seen: Set<string>, results: string[]): voi
     seen.add(symbol);
     results.push(symbol);
   }
+}
+
+function overlapsMatchedRange(start: number, end: number, ranges: Array<{ start: number; end: number }>): boolean {
+  return ranges.some((range) => start < range.end && end > range.start);
 }

@@ -16,6 +16,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 - `GET /api/stocks/:symbol/research`
 - `GET /api/watchlist`
 - `GET /api/source-runs`
+- `GET /api/universe?limit=0`
 - `POST /api/watchlist` with `x-admin-token`
 - `POST /api/admin/run-ingest` with `x-admin-token`
 - `POST /api/admin/run-score` with `x-admin-token`
@@ -28,6 +29,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 Live ingestion currently connects:
 
 - FinMind `TaiwanStockPrice` through `https://api.finmindtrade.com/api/v4/data`, one configured symbol at a time.
+- FinMind `TaiwanStockInfo` as the Taiwan stock universe. This can bootstrap company names without a token; price rows still require `FINMIND_TOKEN`.
 - PTT Stock board title page, with `over18=1` cookie and title-level extraction only.
 - Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
 
@@ -39,6 +41,8 @@ Environment config:
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 
 The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
+
+Entity extraction uses explicit stock codes plus universe-backed company aliases. Longer overlapping aliases win, so a title mentioning `聯發科` does not also create a false hit for `聯發`.
 
 ## Dashboard
 
@@ -78,6 +82,7 @@ Production smoke endpoints:
 ```bash
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/candidates
 curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
+curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=0"
 ```
 
 ## Deferred

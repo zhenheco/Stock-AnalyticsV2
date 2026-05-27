@@ -21,6 +21,11 @@ export class D1Repository implements Repository {
   }
 
   async saveCandidates(candidates: Candidate[]): Promise<void> {
+    await this.db.prepare("DELETE FROM candidates").run();
+    if (candidates.length === 0) {
+      return;
+    }
+
     await batchStatements(this.db, candidates.map((candidate) => this.db.prepare(`
       INSERT OR REPLACE INTO candidates
         (symbol, name, score, event_count, source_count, latest_title, latest_at, sources_json, tags_json, reason)

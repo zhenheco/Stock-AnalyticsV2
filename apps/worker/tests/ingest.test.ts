@@ -120,4 +120,38 @@ describe("runIngestion", () => {
       expect.objectContaining({ symbol: "2330", updatedAt: "2026-05-27T03:00:00.000Z" })
     ]);
   });
+
+  it("uses stored universe aliases to ingest events that mention only company names", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2108",
+      name: "南帝",
+      market: "上市",
+      industry: "橡膠工業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        rssXml: `
+          <rss><channel><item>
+            <title>南帝乳膠報價升溫</title>
+            <link>https://news.test/nantex</link>
+            <pubDate>Wed, 27 May 2026 02:00:00 GMT</pubDate>
+          </item></channel></rss>
+        `
+      }
+    });
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({
+        symbol: "2108",
+        name: "南帝",
+        latestTitle: "南帝乳膠報價升溫"
+      })
+    ]);
+  });
 });

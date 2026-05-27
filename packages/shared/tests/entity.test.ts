@@ -19,4 +19,13 @@ describe("extractMentionedSymbols", () => {
 
     expect(symbols).toEqual([]);
   });
+
+  it("prefers longer overlapping aliases to avoid false company matches", () => {
+    const symbols = extractMentionedSymbols("大摩喊聯發科目標價上修", {
+      聯發: "1459",
+      聯發科: "2454"
+    });
+
+    expect(symbols).toEqual(["2454"]);
+  });
 });
