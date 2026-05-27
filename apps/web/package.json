@@ -5,20 +5,22 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "deploy": "VITE_API_BASE=https://stock-analytics-v2-worker.acejou27.workers.dev vite build && wrangler pages deploy dist --project-name stock-analytics-v2",
     "dev": "vite --host 127.0.0.1",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
     "@stock-analytics/shared": "workspace:*",
-    "vite": "^5.4.11",
+    "@vitejs/plugin-react": "^4.3.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.11"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "wrangler": "^3.91.0"
   }
 }

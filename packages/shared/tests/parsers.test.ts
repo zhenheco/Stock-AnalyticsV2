@@ -22,6 +22,28 @@ describe("parsePttTitles", () => {
       }
     ]);
   });
+
+  it("keeps PTT dates valid when parsing real board row structure", () => {
+    const html = `
+      <div class="r-ent">
+        <div class="nrec"><span class="hl f2">5</span></div>
+        <div class="title"><a href="/bbs/Stock/M.2.html">Re: [新聞] 台積電分紅爭議</a></div>
+        <div class="meta"><div class="author">abc</div><div class="date"> 5/27</div></div>
+      </div>
+      <div class="r-ent">
+        <div class="title"><a href="/bbs/Stock/M.3.html">[閒聊] 2026/05/27 盤中閒聊</a></div>
+        <div class="meta"><div class="date"> 5/27</div></div>
+      </div>
+    `;
+
+    expect(parsePttTitles(html, "https://www.ptt.cc")).toEqual([
+      expect.objectContaining({
+        title: "Re: [新聞] 台積電分紅爭議",
+        publishedAt: "2026-05-27T00:00:00.000+08:00",
+        symbols: ["2330"]
+      })
+    ]);
+  });
 });
 
 describe("parseRssItems", () => {

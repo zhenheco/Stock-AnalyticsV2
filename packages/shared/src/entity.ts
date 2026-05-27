@@ -14,20 +14,27 @@ const ALIASES: Record<string, string> = {
 };
 
 export function extractMentionedSymbols(text: string): string[] {
+  const normalizedText = stripDateLikeText(text);
   const seen = new Set<string>();
   const results: string[] = [];
 
-  for (const match of text.matchAll(SYMBOL_PATTERN)) {
+  for (const match of normalizedText.matchAll(SYMBOL_PATTERN)) {
     appendUnique(match[0], seen, results);
   }
 
   for (const [alias, symbol] of Object.entries(ALIASES)) {
-    if (text.includes(alias)) {
+    if (normalizedText.includes(alias)) {
       appendUnique(symbol, seen, results);
     }
   }
 
   return results;
+}
+
+function stripDateLikeText(text: string): string {
+  return text
+    .replace(/\b20\d{2}[/.-]\d{1,2}[/.-]\d{1,2}\b/g, " ")
+    .replace(/\b19\d{2}[/.-]\d{1,2}[/.-]\d{1,2}\b/g, " ");
 }
 
 function appendUnique(symbol: string, seen: Set<string>, results: string[]): void {

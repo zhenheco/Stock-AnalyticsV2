@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
+    "deploy": "wrangler deploy",
     "dev": "wrangler dev",
+    "migrate:local": "wrangler d1 migrations apply stock-analytics-v2 --local",
+    "migrate:remote": "wrangler d1 migrations apply stock-analytics-v2 --remote",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

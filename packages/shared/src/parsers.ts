@@ -2,7 +2,10 @@ import { extractMentionedSymbols } from "./entity";
 import type { FinMindRow, SourceEvent } from "./types";
 
 export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc"): SourceEvent[] {
-  const blocks = html.match(/<div class="r-ent">[\s\S]*?<\/div>\s*<\/div>/g) ?? [];
+  const blocks = html
+    .split('<div class="r-ent">')
+    .slice(1)
+    .map((block) => block.split('<div class="r-list-sep"></div>')[0] ?? block);
 
   return blocks.flatMap((block) => {
     const titleMatch = block.match(/<div class="title">\s*<a href="([^"]+)">([\s\S]*?)<\/a>\s*<\/div>/);

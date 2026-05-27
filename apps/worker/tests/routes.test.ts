@@ -64,6 +64,16 @@ describe("worker routes", () => {
     expect(response.status).toBe(401);
   });
 
+  it("fails closed for admin mutation endpoints when admin token is not configured", async () => {
+    const app = createApp({ repo: new MemoryRepository() });
+
+    const response = await app.fetch(new Request("https://api.test/api/admin/run-score", {
+      method: "POST"
+    }));
+
+    expect(response.status).toBe(503);
+  });
+
   it("adds and lists watchlist entries with a valid admin token", async () => {
     const app = createApp({ repo: new MemoryRepository(), adminToken: "secret" });
 

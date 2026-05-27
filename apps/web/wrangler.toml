@@ -1,0 +1,3 @@
+name = "stock-analytics-v2"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-05-27"

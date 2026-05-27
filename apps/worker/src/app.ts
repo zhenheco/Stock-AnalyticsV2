@@ -144,7 +144,10 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
 }
 
 function requireAdmin(request: Request, adminToken?: string): Response | null {
-  if (!adminToken || request.headers.get("x-admin-token") === adminToken) {
+  if (!adminToken) {
+    return json({ error: "Admin token is not configured" }, 503);
+  }
+  if (request.headers.get("x-admin-token") === adminToken) {
     return null;
   }
   return json({ error: "Unauthorized" }, 401);

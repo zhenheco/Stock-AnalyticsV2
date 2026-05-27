@@ -58,6 +58,28 @@ pnpm dev
 
 For local secret injection, use 1Password references via `op run --env-file=.env -- <command>`. Do not commit raw secrets.
 
+## Deployment
+
+```bash
+pnpm migrate:remote
+pnpm deploy:worker
+pnpm --filter @stock-analytics/web build
+pnpm deploy:web
+```
+
+Cloudflare resources:
+
+- D1: `stock-analytics-v2` (`8b370f1c-9f22-47b5-b615-a5ecd26a21b2`)
+- Worker: `stock-analytics-v2-worker` at `https://stock-analytics-v2-worker.acejou27.workers.dev`
+- Pages: `stock-analytics-v2` at `https://stock-analytics-v2.pages.dev`
+
+Production smoke endpoints:
+
+```bash
+curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/candidates
+curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
+```
+
 ## Deferred
 
 - Real-time tick data.

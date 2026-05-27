@@ -5,7 +5,12 @@ compatibility_date = "2026-05-27"
 [triggers]
 crons = ["0 * * * *"]
 
+[vars]
+FINMIND_SYMBOLS = "2330,2317,2454,2382,3231"
+RSS_FEED_URL = "https://tw.stock.yahoo.com/rss?category=news"
+PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "stock-analytics-v2"
-database_id = "local-placeholder"
+database_id = "8b370f1c-9f22-47b5-b615-a5ecd26a21b2"

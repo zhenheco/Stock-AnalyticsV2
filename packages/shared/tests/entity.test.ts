@@ -13,4 +13,10 @@ describe("extractMentionedSymbols", () => {
 
     expect(symbols).toEqual(["2330", "2317", "2454"]);
   });
+
+  it("does not treat dates in titles as stock mentions", () => {
+    const symbols = extractMentionedSymbols("[閒聊] 2026/05/27 盤中閒聊；板規 v4.6 (2024/07/02 修正)");
+
+    expect(symbols).toEqual([]);
+  });
 });

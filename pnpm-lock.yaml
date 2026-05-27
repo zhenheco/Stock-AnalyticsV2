@@ -42,6 +42,9 @@ importers:
       vitest:
         specifier: ^2.1.9
         version: 2.1.9
+      wrangler:
+        specifier: ^3.91.0
+        version: 3.114.17
 
   apps/worker:
     dependencies:
