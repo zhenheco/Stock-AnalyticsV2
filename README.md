@@ -101,7 +101,7 @@ pnpm complete:production
 ```
 
 Expected final readiness is `finmind-signals=ready` when token-backed ingestion works, or `finmind-signals=degraded` when anonymous limited price/chip/revenue rows are flowing. If the token is still empty, the sync script exits before touching Cloudflare secrets.
-`pnpm complete:production` runs the closeout sequence: strict secret readiness check, FinMind secret sync plus ingestion smoke, then the strict production ready gate. If `FINMIND_TOKEN` is empty, it stops before attempting Cloudflare secret sync.
+`pnpm complete:production` runs the closeout sequence: strict secret readiness check, production ingestion smoke, FinMind secret sync plus ingestion smoke, then the strict production ready gate. If `FINMIND_TOKEN` is empty, it stops before triggering production ingestion or attempting Cloudflare secret sync.
 
 ## Deployment
 

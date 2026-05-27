@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const STEPS = [
   { name: "check:secrets:ready", args: ["check:secrets:ready"] },
+  { name: "check:production:smoke", args: ["check:production:smoke"] },
   { name: "sync:finmind-secret", args: ["sync:finmind-secret"] },
   { name: "check:production:ready", args: ["check:production:ready"] }
 ];

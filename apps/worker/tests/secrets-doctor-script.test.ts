@@ -13,7 +13,7 @@ describe("secrets-doctor script helpers", () => {
       "SECRET ADMIN_TOKEN present length=64",
       "SECRET INGEST_WEBHOOK_TOKEN present length=64",
       "SECRET FINMIND_TOKEN missing length=0",
-      "NEXT_ACTION fill op://Dev/stock-analytics-v2/FINMIND_TOKEN then run pnpm sync:finmind-secret && pnpm check:production:ready"
+      "NEXT_ACTION fill op://Dev/stock-analytics-v2/FINMIND_TOKEN then run pnpm complete:production"
     ]);
   });
 

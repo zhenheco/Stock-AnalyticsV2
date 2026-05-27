@@ -18,9 +18,9 @@ export function summarizeSecretFields(item) {
   });
 
   if (lines.some((line) => line.includes("FINMIND_TOKEN missing") || line.includes("FINMIND_TOKEN field-missing"))) {
-    lines.push("NEXT_ACTION fill op://Dev/stock-analytics-v2/FINMIND_TOKEN then run pnpm sync:finmind-secret && pnpm check:production:ready");
+    lines.push("NEXT_ACTION fill op://Dev/stock-analytics-v2/FINMIND_TOKEN then run pnpm complete:production");
   } else {
-    lines.push("NEXT_ACTION run pnpm sync:finmind-secret && pnpm check:production:ready");
+    lines.push("NEXT_ACTION run pnpm complete:production");
   }
 
   return lines;
