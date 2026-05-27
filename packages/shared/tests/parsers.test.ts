@@ -247,4 +247,10 @@ describe("normalizeFinMindRows", () => {
       }
     ]);
   });
+
+  it("skips unsupported FinMind rows instead of creating empty price events", () => {
+    expect(normalizeFinMindRows([
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "MarginPurchaseCashRepayment", buy: 0, sell: 0 } as any
+    ], "2026-05-27T05:00:00.000Z")).toEqual([]);
+  });
 });

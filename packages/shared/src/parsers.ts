@@ -107,6 +107,10 @@ export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEve
       }];
     }
 
+    if (!finiteNumber(row.close) && !finiteNumber(row.Trading_Volume)) {
+      return [];
+    }
+
     const title = `${symbol} ${name} close ${row.close ?? "N/A"} volume ${row.Trading_Volume ?? 0}`;
 
     return [{
@@ -194,7 +198,7 @@ function normalizeSymbol(value: string | undefined): string {
 }
 
 function isInstitutionalRow(row: FinMindRow): boolean {
-  return Boolean(row.name && finiteNumber(row.buy) && finiteNumber(row.sell));
+  return Boolean(row.name && translateInstitutionName(row.name) !== row.name && finiteNumber(row.buy) && finiteNumber(row.sell));
 }
 
 function isMarginRow(row: FinMindRow): boolean {

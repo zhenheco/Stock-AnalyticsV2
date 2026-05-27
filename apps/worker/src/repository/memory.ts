@@ -34,6 +34,10 @@ export class MemoryRepository implements Repository {
     this.events = [...byId.values()];
   }
 
+  async replaceEvents(events: EventRecord[]): Promise<void> {
+    this.events = [...events];
+  }
+
   async listUniverse(limit?: number): Promise<UniverseStock[]> {
     const stocks = [...this.universe].sort((left, right) => left.symbol.localeCompare(right.symbol));
     return typeof limit === "number" ? stocks.slice(0, limit) : stocks;

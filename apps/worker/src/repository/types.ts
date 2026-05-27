@@ -6,6 +6,7 @@ export interface Repository {
   listEvents(): Promise<EventRecord[]>;
   listEventsForSymbol(symbol: string): Promise<EventRecord[]>;
   saveEvents(events: EventRecord[]): Promise<void>;
+  replaceEvents(events: EventRecord[]): Promise<void>;
   listUniverse(limit?: number): Promise<UniverseStock[]>;
   countUniverse(): Promise<number>;
   upsertUniverse(stocks: UniverseStock[]): Promise<void>;

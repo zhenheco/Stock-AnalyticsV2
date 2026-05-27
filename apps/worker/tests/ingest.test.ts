@@ -300,6 +300,44 @@ describe("runIngestion", () => {
     ]);
   });
 
+  it("drops stale empty FinMind price events created from unsupported rows", async () => {
+    const repo = new MemoryRepository();
+    await repo.saveEvents([
+      {
+        id: "finmind:2330:https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=2330",
+        source: "finmind",
+        symbol: "2330",
+        title: "2330 台積電 close N/A volume 0",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=2330",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 0,
+        tags: ["價格量能"],
+        sentiment: 3,
+        reason: "finmind 事件訊號命中"
+      },
+      {
+        id: "finmind:2330:https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=2330&name=Foreign_Investor",
+        source: "finmind",
+        symbol: "2330",
+        title: "2330 台積電 外資 買超 8810922 股",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=2330&name=Foreign_Investor",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 8810922,
+        tags: ["籌碼", "價格量能"],
+        sentiment: 3,
+        reason: "FinMind 籌碼訊號命中"
+      }
+    ]);
+
+    await recomputeCandidates(repo);
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({
+        title: "2330 台積電 外資 買超 8810922 股"
+      })
+    ]);
+  });
+
   it("classifies formal announcements separately from research catalysts", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse([

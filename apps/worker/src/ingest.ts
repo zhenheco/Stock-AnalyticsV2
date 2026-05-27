@@ -80,11 +80,11 @@ export async function recomputeCandidates(repo: Repository, names: Record<string
   const aliases = buildAliasMap(universe);
   const validSymbols = new Set(universe.map((stock) => stock.symbol));
   const supportedEvents = (await repo.listEvents())
-    .filter((event) => isEventSymbolStillSupported(event, aliases, validSymbols));
+    .filter((event) => isStoredEventStillSupported(event, aliases, validSymbols));
   const events = options.reclassify === false
     ? supportedEvents
     : await reclassifyStoredEvents(supportedEvents, options);
-  await repo.saveEvents(events);
+  await repo.replaceEvents(events);
   const candidates = scoreCandidates(events, {
     ...Object.fromEntries(universe.map((stock) => [stock.symbol, stock.name])),
     ...names
@@ -164,7 +164,10 @@ async function classifyWithFallback(
   }
 }
 
-function isEventSymbolStillSupported(event: EventRecord, aliases: Record<string, string>, validSymbols: ReadonlySet<string>): boolean {
+function isStoredEventStillSupported(event: EventRecord, aliases: Record<string, string>, validSymbols: ReadonlySet<string>): boolean {
+  if (event.source === "finmind" && event.title.match(/\sclose N\/A volume 0$/)) {
+    return false;
+  }
   if (!validSymbols.has(event.symbol)) {
     return true;
   }

@@ -75,6 +75,11 @@ export class D1Repository implements Repository {
     )));
   }
 
+  async replaceEvents(events: EventRecord[]): Promise<void> {
+    await this.db.prepare("DELETE FROM events").run();
+    await this.saveEvents(events);
+  }
+
   async listUniverse(limit?: number): Promise<UniverseStock[]> {
     const query = typeof limit === "number"
       ? this.db.prepare("SELECT * FROM universe ORDER BY symbol LIMIT ?").bind(limit)
