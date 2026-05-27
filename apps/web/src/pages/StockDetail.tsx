@@ -1,11 +1,12 @@
-import type { EventRecord } from "@stock-analytics/shared";
+import type { EventRecord, UniverseStock } from "@stock-analytics/shared";
 
 interface StockDetailProps {
   symbol: string;
+  stock?: UniverseStock | null;
   events: EventRecord[];
 }
 
-export function StockDetail({ symbol, events }: StockDetailProps) {
+export function StockDetail({ symbol, stock, events }: StockDetailProps) {
   const tradingViewSymbol = `TWSE:${symbol}`;
   const widgetUrl = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tradingViewSymbol)}&interval=D&theme=dark`;
 
@@ -14,7 +15,8 @@ export function StockDetail({ symbol, events }: StockDetailProps) {
       <header className="page-header compact">
         <div>
           <p className="eyebrow">STOCK RESEARCH</p>
-          <h1>{symbol}</h1>
+          <h1>{stock?.name ? `${symbol} ${stock.name}` : symbol}</h1>
+          {stock ? <p className="muted">{[stock.market, stock.industry, stock.securityType].filter(Boolean).join(" / ")}</p> : null}
         </div>
         <a className="ghost-button" href="/">回雷達</a>
       </header>

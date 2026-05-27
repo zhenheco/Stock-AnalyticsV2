@@ -15,6 +15,14 @@ describe("fetchLiveSources", () => {
       fetcher: async (input, init) => {
         const url = String(input);
         requested.push(`${init?.headers instanceof Headers ? init.headers.get("authorization") : ""} ${url}`);
+        if (url.includes("finmindtrade") && url.includes("TaiwanStockInfo")) {
+          return jsonResponse({
+            data: [
+              { stock_id: "2330", stock_name: "台積電", market_category: "上市", industry_category: "半導體業", type: "twse" },
+              { stock_id: "2317", stock_name: "鴻海", market_category: "上市", industry_category: "其他電子業", type: "twse" }
+            ]
+          });
+        }
         if (url.includes("finmindtrade")) {
           const symbol = new URL(url).searchParams.get("data_id");
           return jsonResponse({
@@ -32,14 +40,16 @@ describe("fetchLiveSources", () => {
     });
 
     expect(result.sources.finmindRows).toHaveLength(2);
+    expect(result.sources.finmindStockInfoRows).toHaveLength(2);
     expect(result.sources.rssXml).toContain("台積電");
     expect(result.sources.pttHtml).toContain("2330");
     expect(result.runs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 2 }),
+      expect.objectContaining({ source: "finmind", status: "ok", itemCount: 4 }),
       expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 }),
       expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
     ]));
     expect(requested.some((entry) => entry.includes("Bearer token"))).toBe(true);
+    expect(requested.some((entry) => entry.includes("dataset=TaiwanStockInfo"))).toBe(true);
   });
 
   it("returns partial source data when one source fails", async () => {
@@ -63,6 +73,35 @@ describe("fetchLiveSources", () => {
     expect(result.runs).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "rss", status: "failed", itemCount: 0 }),
       expect.objectContaining({ source: "ptt", status: "ok", itemCount: 1 })
+    ]));
+  });
+
+  it("fetches FinMind stock info without a token and leaves price data partial", async () => {
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({
+            data: [
+              { stock_id: "1402", stock_name: "遠東新", industry_category: "紡織纖維", type: "twse" }
+            ]
+          });
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(result.sources.finmindStockInfoRows).toEqual([
+      expect.objectContaining({ stock_id: "1402", stock_name: "遠東新" })
+    ]);
+    expect(result.sources.finmindRows).toBeUndefined();
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "finmind", status: "partial", itemCount: 1 })
     ]));
   });
 });

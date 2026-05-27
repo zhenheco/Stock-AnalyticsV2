@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Candidate, EventRecord, SourceRun, WatchlistEntry } from "@stock-analytics/shared";
-import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchWatchlist } from "./api";
+import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist } from "./api";
 import { RadarTable } from "./components/RadarTable";
 import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
@@ -27,17 +27,21 @@ export function App() {
 }
 
 function RadarRoute() {
-  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[] }>>({ status: "loading" });
+  const [state, setState] = useState<LoadState<{ candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number }>>({ status: "loading" });
 
   useEffect(() => {
-    Promise.all([fetchCandidates(), fetchSourceRuns()])
-      .then(([candidateData, healthData]) => setState({ status: "ready", data: { ...candidateData, runs: healthData.runs } }))
+    Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse()])
+      .then(([candidateData, healthData, universeData]) => setState({
+        status: "ready",
+        data: { ...candidateData, runs: healthData.runs, universeCount: universeData.count }
+      }))
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
 
   const candidates = state.status === "ready" ? state.data.candidates : [];
   const updatedAt = state.status === "ready" ? state.data.updatedAt : null;
   const runs = state.status === "ready" ? state.data.runs : [];
+  const universeCount = state.status === "ready" ? state.data.universeCount : 0;
 
   return (
     <main>
@@ -57,6 +61,8 @@ function RadarRoute() {
             <strong>{updatedAt ? formatTime(updatedAt) : "等待同步"}</strong>
             <span>候選數</span>
             <strong>{candidates.length}</strong>
+            <span>股票主檔</span>
+            <strong>{universeCount}</strong>
           </div>
         </div>
       </header>
@@ -80,19 +86,20 @@ function RadarRoute() {
 }
 
 function StockRoute({ symbol }: { symbol: string }) {
-  const [state, setState] = useState<LoadState<{ events: EventRecord[] }>>({ status: "loading" });
+  const [state, setState] = useState<LoadState<{ stock: UniverseStock | null; events: EventRecord[] }>>({ status: "loading" });
 
   useEffect(() => {
     fetchStockResearch(symbol)
-      .then((data) => setState({ status: "ready", data: { events: data.events } }))
+      .then((data) => setState({ status: "ready", data: { stock: data.stock, events: data.events } }))
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, [symbol]);
 
   const events = state.status === "ready" ? state.data.events : [];
+  const stock = state.status === "ready" ? state.data.stock : null;
   return (
     <>
       {state.status === "error" ? <ErrorPanel message={state.message} /> : null}
-      <StockDetail symbol={symbol} events={events} />
+      <StockDetail symbol={symbol} stock={stock} events={events} />
     </>
   );
 }

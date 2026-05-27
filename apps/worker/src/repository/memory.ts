@@ -1,9 +1,10 @@
-import type { Candidate, EventRecord, SourceRun, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 export class MemoryRepository implements Repository {
   private candidates: Candidate[] = [];
   private events: EventRecord[] = [];
+  private universe: UniverseStock[] = [];
   private sourceRuns: SourceRun[] = [];
   private watchlist: WatchlistEntry[] = [];
 
@@ -31,6 +32,23 @@ export class MemoryRepository implements Repository {
       byId.set(event.id, event);
     }
     this.events = [...byId.values()];
+  }
+
+  async listUniverse(limit?: number): Promise<UniverseStock[]> {
+    const stocks = [...this.universe].sort((left, right) => left.symbol.localeCompare(right.symbol));
+    return typeof limit === "number" ? stocks.slice(0, limit) : stocks;
+  }
+
+  async countUniverse(): Promise<number> {
+    return this.universe.length;
+  }
+
+  async upsertUniverse(stocks: UniverseStock[]): Promise<void> {
+    const bySymbol = new Map(this.universe.map((stock) => [stock.symbol, stock]));
+    for (const stock of stocks) {
+      bySymbol.set(stock.symbol, stock);
+    }
+    this.universe = [...bySymbol.values()];
   }
 
   async listSourceRuns(): Promise<SourceRun[]> {

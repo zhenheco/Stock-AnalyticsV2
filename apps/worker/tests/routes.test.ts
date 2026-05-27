@@ -53,6 +53,71 @@ describe("worker routes", () => {
     ]);
   });
 
+  it("returns universe metadata for connected Taiwan stock master data", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    }]);
+    const app = createApp({ repo, adminToken: "secret" });
+
+    await repo.upsertUniverse([{
+      symbol: "2317",
+      name: "鴻海",
+      market: "上市",
+      industry: "其他電子業",
+      securityType: "stock",
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    }]);
+
+    const response = await app.fetch(new Request("https://api.test/api/universe?limit=2"));
+    const body = await response.json() as { stocks: unknown[]; count: number };
+
+    expect(response.status).toBe(200);
+    expect(body.count).toBe(2);
+    expect(body.stocks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ symbol: "2330", name: "台積電", industry: "半導體業" })
+    ]));
+  });
+
+  it("uses universe names when recomputing candidates from stored events", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-27T05:00:00.000Z"
+    }]);
+    await repo.saveEvents([{
+      id: "rss:2330:test",
+      source: "rss",
+      symbol: "2330",
+      title: "2330 AI 訂單",
+      url: "https://news.test/a",
+      publishedAt: "2026-05-27T02:00:00.000Z",
+      engagement: 0,
+      tags: ["AI"],
+      sentiment: 4,
+      reason: "新聞事件"
+    }]);
+    const app = createApp({ repo, adminToken: "secret" });
+
+    await app.fetch(new Request("https://api.test/api/admin/run-score", {
+      method: "POST",
+      headers: { "x-admin-token": "secret" }
+    }));
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2330", name: "台積電" })
+    ]);
+  });
+
   it("requires admin token to mutate watchlist", async () => {
     const app = createApp({ repo: new MemoryRepository(), adminToken: "secret" });
 

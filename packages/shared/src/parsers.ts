@@ -1,5 +1,5 @@
 import { extractMentionedSymbols } from "./entity";
-import type { FinMindRow, SourceEvent } from "./types";
+import type { FinMindRow, FinMindStockInfoRow, SecurityType, SourceEvent, UniverseStock } from "./types";
 
 export function parsePttTitles(html: string, baseUrl = "https://www.ptt.cc"): SourceEvent[] {
   const blocks = html
@@ -73,6 +73,29 @@ export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEve
   });
 }
 
+export function normalizeFinMindStockInfoRows(rows: FinMindStockInfoRow[], now: string): UniverseStock[] {
+  const bySymbol = new Map<string, UniverseStock>();
+
+  for (const row of rows) {
+    const symbol = normalizeSymbol(row.stock_id);
+    const name = row.stock_name?.trim();
+    if (!symbol || !name || !/^\d{4,6}[A-Z]?$/.test(symbol)) {
+      continue;
+    }
+
+    bySymbol.set(symbol, {
+      symbol,
+      name,
+      ...(row.market_category?.trim() ? { market: row.market_category.trim() } : {}),
+      ...(row.industry_category?.trim() ? { industry: row.industry_category.trim() } : {}),
+      securityType: inferSecurityType(row),
+      updatedAt: now
+    });
+  }
+
+  return [...bySymbol.values()];
+}
+
 function parsePushCount(block: string): number {
   const raw = textContent(block.match(/<div class="nrec">([\s\S]*?)<\/div>/)?.[1] ?? "");
   if (raw === "爆") {
@@ -109,4 +132,25 @@ function decodeHtml(value: string): string {
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", "\"")
     .replaceAll("&#39;", "'");
+}
+
+function normalizeSymbol(value: string | undefined): string {
+  return (value ?? "").trim().toUpperCase();
+}
+
+function inferSecurityType(row: FinMindStockInfoRow): SecurityType {
+  const raw = `${row.type ?? ""} ${row.industry_category ?? ""} ${row.market_category ?? ""}`.toLowerCase();
+  if (raw.includes("etf")) {
+    return "etf";
+  }
+  if (raw.includes("etn")) {
+    return "etn";
+  }
+  if (raw.includes("index") || raw.includes("指數")) {
+    return "index";
+  }
+  if ((row.stock_id ?? "").match(/^\d{4,6}[A-Z]?$/)) {
+    return "stock";
+  }
+  return "unknown";
 }

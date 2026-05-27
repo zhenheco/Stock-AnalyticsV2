@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePttTitles, parseRssItems } from "../src/parsers";
+import { normalizeFinMindStockInfoRows, parsePttTitles, parseRssItems } from "../src/parsers";
 
 describe("parsePttTitles", () => {
   it("extracts title, url, push count, published time, and mentioned symbols", () => {
@@ -66,6 +66,51 @@ describe("parseRssItems", () => {
         publishedAt: "2026-05-27T01:00:00.000Z",
         engagement: 0,
         symbols: ["2330"]
+      }
+    ]);
+  });
+});
+
+describe("normalizeFinMindStockInfoRows", () => {
+  it("normalizes TaiwanStockInfo rows into a Taiwan stock universe", () => {
+    expect(normalizeFinMindStockInfoRows([
+      {
+        stock_id: "2330",
+        stock_name: "台積電",
+        market_category: "上市",
+        industry_category: "半導體業",
+        type: "twse"
+      },
+      {
+        stock_id: "0050",
+        stock_name: "元大台灣50",
+        market_category: "上市",
+        industry_category: "ETF",
+        type: "ETF"
+      },
+      {
+        stock_id: "TWA00",
+        stock_name: "加權指數",
+        market_category: "Index",
+        industry_category: "指數",
+        type: "index"
+      }
+    ], "2026-05-27T05:00:00.000Z")).toEqual([
+      {
+        symbol: "2330",
+        name: "台積電",
+        market: "上市",
+        industry: "半導體業",
+        securityType: "stock",
+        updatedAt: "2026-05-27T05:00:00.000Z"
+      },
+      {
+        symbol: "0050",
+        name: "元大台灣50",
+        market: "上市",
+        industry: "ETF",
+        securityType: "etf",
+        updatedAt: "2026-05-27T05:00:00.000Z"
       }
     ]);
   });

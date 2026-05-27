@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, SourceKind, SourceRun, SourceRunStatus, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, SourceKind, SourceRun, SourceRunStatus, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 interface D1Database {
@@ -21,7 +21,7 @@ export class D1Repository implements Repository {
   }
 
   async saveCandidates(candidates: Candidate[]): Promise<void> {
-    await this.db.batch(candidates.map((candidate) => this.db.prepare(`
+    await batchStatements(this.db, candidates.map((candidate) => this.db.prepare(`
       INSERT OR REPLACE INTO candidates
         (symbol, name, score, event_count, source_count, latest_title, latest_at, sources_json, tags_json, reason)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -52,7 +52,7 @@ export class D1Repository implements Repository {
   }
 
   async saveEvents(events: EventRecord[]): Promise<void> {
-    await this.db.batch(events.map((event) => this.db.prepare(`
+    await batchStatements(this.db, events.map((event) => this.db.prepare(`
       INSERT OR REPLACE INTO events
         (id, source, symbol, title, url, published_at, engagement, tags_json, sentiment, reason)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -70,6 +70,38 @@ export class D1Repository implements Repository {
     )));
   }
 
+  async listUniverse(limit?: number): Promise<UniverseStock[]> {
+    const query = typeof limit === "number"
+      ? this.db.prepare("SELECT * FROM universe ORDER BY symbol LIMIT ?").bind(limit)
+      : this.db.prepare("SELECT * FROM universe ORDER BY symbol");
+    const rows = await query.all<UniverseRow>();
+    return (rows.results ?? []).map(rowToUniverseStock);
+  }
+
+  async countUniverse(): Promise<number> {
+    const rows = await this.db.prepare("SELECT COUNT(*) AS count FROM universe").all<{ count: number }>();
+    return rows.results?.[0]?.count ?? 0;
+  }
+
+  async upsertUniverse(stocks: UniverseStock[]): Promise<void> {
+    if (stocks.length === 0) {
+      return;
+    }
+
+    await batchStatements(this.db, stocks.map((stock) => this.db.prepare(`
+      INSERT OR REPLACE INTO universe
+        (symbol, name, market, industry, security_type, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      stock.symbol,
+      stock.name,
+      stock.market ?? null,
+      stock.industry ?? null,
+      stock.securityType,
+      stock.updatedAt
+    )));
+  }
+
   async listSourceRuns(): Promise<SourceRun[]> {
     const rows = await this.db.prepare("SELECT * FROM source_runs ORDER BY started_at DESC LIMIT 50").all<SourceRunRow>();
     return (rows.results ?? []).map((row) => ({
@@ -84,7 +116,7 @@ export class D1Repository implements Repository {
   }
 
   async saveSourceRuns(runs: SourceRun[]): Promise<void> {
-    await this.db.batch(runs.map((run) => this.db.prepare(`
+    await batchStatements(this.db, runs.map((run) => this.db.prepare(`
       INSERT OR REPLACE INTO source_runs
         (id, source, status, started_at, finished_at, item_count, message)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -155,6 +187,15 @@ interface SourceRunRow {
   message: string | null;
 }
 
+interface UniverseRow {
+  symbol: string;
+  name: string;
+  market: string | null;
+  industry: string | null;
+  security_type: UniverseStock["securityType"];
+  updated_at: string;
+}
+
 function rowToCandidate(row: CandidateRow): Candidate {
   return {
     symbol: row.symbol,
@@ -183,4 +224,21 @@ function rowToEvent(row: EventRow): EventRecord {
     sentiment: row.sentiment,
     reason: row.reason
   };
+}
+
+function rowToUniverseStock(row: UniverseRow): UniverseStock {
+  return {
+    symbol: row.symbol,
+    name: row.name,
+    ...(row.market ? { market: row.market } : {}),
+    ...(row.industry ? { industry: row.industry } : {}),
+    securityType: row.security_type,
+    updatedAt: row.updated_at
+  };
+}
+
+async function batchStatements(db: D1Database, statements: D1PreparedStatement[], size = 100): Promise<void> {
+  for (let index = 0; index < statements.length; index += size) {
+    await db.batch(statements.slice(index, index + size));
+  }
 }

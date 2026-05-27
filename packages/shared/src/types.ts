@@ -42,6 +42,17 @@ export interface WatchlistEntry {
   addedAt: string;
 }
 
+export type SecurityType = "stock" | "etf" | "etn" | "index" | "unknown";
+
+export interface UniverseStock {
+  symbol: string;
+  name: string;
+  market?: string;
+  industry?: string;
+  securityType: SecurityType;
+  updatedAt: string;
+}
+
 export interface SourceRun {
   id: string;
   source: SourceKind;
@@ -63,4 +74,12 @@ export interface FinMindRow {
   stock_name?: string;
   close?: number;
   Trading_Volume?: number;
+}
+
+export interface FinMindStockInfoRow {
+  stock_id: string;
+  stock_name?: string;
+  market_category?: string;
+  industry_category?: string;
+  type?: string;
 }

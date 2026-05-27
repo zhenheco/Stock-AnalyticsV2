@@ -1,10 +1,12 @@
 import {
   normalizeFinMindRows,
+  normalizeFinMindStockInfoRows,
   parsePttTitles,
   parseRssItems,
   scoreCandidates,
   type EventRecord,
   type FinMindRow,
+  type FinMindStockInfoRow,
   type SourceEvent
 } from "@stock-analytics/shared";
 import type { Repository } from "./repository/types";
@@ -13,6 +15,7 @@ export interface IngestionSources {
   pttHtml?: string;
   rssXml?: string;
   finmindRows?: FinMindRow[];
+  finmindStockInfoRows?: FinMindStockInfoRow[];
 }
 
 export interface IngestionInput {
@@ -27,8 +30,20 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
     ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml) : []),
     ...(input.sources.finmindRows ? normalizeFinMindRows(input.sources.finmindRows, input.now) : [])
   ];
-  const events = sourceEvents.flatMap((event) => expandSymbols(event));
-  const names = Object.fromEntries((input.sources.finmindRows ?? []).map((row) => [row.stock_id, row.stock_name ?? row.stock_id]));
+  const universe = input.sources.finmindStockInfoRows
+    ? normalizeFinMindStockInfoRows(input.sources.finmindStockInfoRows, input.now)
+    : [];
+  const relevantSymbols = collectRelevantSymbols(sourceEvents, input.sources.finmindRows ?? []);
+  const relevantUniverse = universe.filter((stock) => relevantSymbols.has(stock.symbol));
+  const universeToPersist = universe.length > 0 && await input.repo.countUniverse() === 0 ? universe : relevantUniverse;
+  if (universeToPersist.length > 0) {
+    await input.repo.upsertUniverse(universeToPersist);
+  }
+
+  const names = {
+    ...(await listUniverseNames(input.repo)),
+    ...Object.fromEntries((input.sources.finmindRows ?? []).map((row) => [row.stock_id, row.stock_name ?? row.stock_id]))
+  };
 
   await persistSourceEvents(input.repo, sourceEvents, names);
 }
@@ -40,7 +55,10 @@ export async function persistSourceEvents(repo: Repository, sourceEvents: Source
 }
 
 export async function recomputeCandidates(repo: Repository, names: Record<string, string> = {}): Promise<void> {
-  const candidates = scoreCandidates(await repo.listEvents(), names);
+  const candidates = scoreCandidates(await repo.listEvents(), {
+    ...(await listUniverseNames(repo)),
+    ...names
+  });
   await repo.saveCandidates(candidates);
 }
 
@@ -76,4 +94,15 @@ function classifyEvent(title: string, source: SourceEvent["source"]): { sentimen
     tags: tags.slice(0, 3),
     reason: `${source} 事件訊號命中`
   };
+}
+
+async function listUniverseNames(repo: Repository): Promise<Record<string, string>> {
+  return Object.fromEntries((await repo.listUniverse()).map((stock) => [stock.symbol, stock.name]));
+}
+
+function collectRelevantSymbols(sourceEvents: SourceEvent[], finmindRows: FinMindRow[]): Set<string> {
+  return new Set([
+    ...sourceEvents.flatMap((event) => event.symbols),
+    ...finmindRows.map((row) => row.stock_id)
+  ]);
 }

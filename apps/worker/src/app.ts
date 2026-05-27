@@ -61,11 +61,20 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     return json({ runs: await options.repo.listSourceRuns() });
   }
 
+  if (url.pathname === "/api/universe" && request.method === "GET") {
+    const limit = parseLimit(url.searchParams.get("limit"));
+    return json({
+      stocks: await options.repo.listUniverse(limit),
+      count: await options.repo.countUniverse()
+    });
+  }
+
   const stockMatch = url.pathname.match(/^\/api\/stocks\/([^/]+)\/research$/);
   if (stockMatch?.[1] && request.method === "GET") {
     const symbol = stockMatch[1].toUpperCase();
     const events = await options.repo.listEventsForSymbol(symbol);
-    return json({ symbol, events });
+    const stock = (await options.repo.listUniverse()).find((item) => item.symbol === symbol) ?? null;
+    return json({ symbol, stock, events });
   }
 
   if (url.pathname === "/api/watchlist" && request.method === "GET") {
@@ -169,6 +178,17 @@ function parseJson(value: string): unknown {
   }
 }
 
+function parseLimit(value: string | null): number {
+  if (!value) {
+    return 100;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 100;
+  }
+  return Math.min(Math.max(Math.trunc(parsed), 0), 500);
+}
+
 function isWatchlistInput(input: unknown): input is { symbol: string; name: string } {
   if (typeof input !== "object" || input === null) {
     return false;
@@ -233,6 +253,8 @@ function corsHeaders(): Record<string, string> {
 }
 
 function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
+  const finmindItemCount = (sources.finmindRows?.length ?? 0) + (sources.finmindStockInfoRows?.length ?? 0);
+
   return [
     ...(sources.pttHtml ? [{
       id: `ptt:${now}`,
@@ -250,13 +272,13 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       finishedAt: now,
       itemCount: 1
     }] : []),
-    ...(sources.finmindRows ? [{
+    ...(finmindItemCount > 0 ? [{
       id: `finmind:${now}`,
       source: "finmind" as const,
       status: "ok" as const,
       startedAt: now,
       finishedAt: now,
-      itemCount: sources.finmindRows.length
+      itemCount: finmindItemCount
     }] : [])
   ];
 }
