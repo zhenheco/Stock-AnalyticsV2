@@ -41,7 +41,7 @@ Live ingestion currently connects:
 
 Environment config:
 
-- `FINMIND_TOKEN` - optional 1Password reference locally and Cloudflare secret in production. When absent, the Worker still attempts anonymous limited FinMind price/chip/revenue ingestion and marks readiness as degraded.
+- `FINMIND_TOKEN` - optional 1Password reference locally and Cloudflare secret in production. When absent, the Worker still attempts anonymous limited FinMind price/chip/revenue ingestion; readiness is `ready` when anonymous rows are flowing, and adding the token improves quota stability.
 - `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip/revenue fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS feeds. Production uses Yahoo Taiwan stock news plus Liberty Times finance RSS after live smoke checks; failed feeds are reported as partial while healthy feeds still ingest.
