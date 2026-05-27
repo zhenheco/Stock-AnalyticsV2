@@ -75,6 +75,27 @@ describe("worker routes", () => {
     expect(body.candidateCount).toBe(1);
   });
 
+  it("runs live ingestion through an admin endpoint when no sources payload is supplied", async () => {
+    const app = createApp({
+      repo: new MemoryRepository(),
+      adminToken: "secret",
+      sourceEnv: {
+        RSS_FEED_URL: "https://rss.test/feed.xml"
+      },
+      fetcher: async () => new Response("<rss><channel><item><title>台積電 2330 AI 新聞</title><link>https://news.test/1</link><pubDate>Wed, 27 May 2026 04:00:00 GMT</pubDate></item></channel></rss>")
+    });
+
+    const response = await app.fetch(new Request("https://api.test/api/admin/run-ingest", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-token": "secret" },
+      body: JSON.stringify({})
+    }));
+    const body = await response.json() as { candidateCount: number };
+
+    expect(response.status).toBe(202);
+    expect(body.candidateCount).toBe(1);
+  });
+
   it("recomputes candidates from stored events through an admin endpoint", async () => {
     const repo = new MemoryRepository();
     await repo.saveEvents([{

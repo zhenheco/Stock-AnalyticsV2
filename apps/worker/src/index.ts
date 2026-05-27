@@ -1,13 +1,33 @@
 import { appFromEnv, type WorkerEnv } from "./app";
+import { runIngestion } from "./ingest";
+import { D1Repository } from "./repository/d1";
+import type { Repository } from "./repository/types";
+import { fetchLiveSources } from "./sources/live";
+
+type TestableWorkerEnv = WorkerEnv & {
+  __repo?: Repository;
+  __fetcher?: typeof fetch;
+};
 
 export default {
   fetch(request: Request, env: WorkerEnv): Promise<Response> {
     return appFromEnv(env).fetch(request);
   },
 
-  async scheduled(_event: unknown, _env: WorkerEnv): Promise<void> {
-    // The MVP cron entrypoint is intentionally small. The ingestion runner is pure
-    // and tested separately so live source fetches can be wired without changing
-    // the dashboard/API contract.
+  async scheduled(_event: unknown, env: TestableWorkerEnv): Promise<void> {
+    const repo = env.__repo ?? (env.DB ? new D1Repository(env.DB) : undefined);
+    if (!repo) {
+      throw new Error("DB binding is required");
+    }
+    const now = new Date().toISOString();
+    await runIngestion({
+      repo,
+      now,
+      sources: await fetchLiveSources({
+        now,
+        env,
+        fetcher: env.__fetcher
+      })
+    });
   }
 };

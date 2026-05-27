@@ -20,6 +20,25 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 - `POST /api/admin/run-score` with `x-admin-token`
 - `POST /api/ingest/social` with `x-ingest-signature: sha256=<hmac>`
 
+## Live Sources
+
+`POST /api/admin/run-ingest` accepts either fixture payloads for tests or an empty body for live ingestion.
+
+Live ingestion currently connects:
+
+- FinMind `TaiwanStockPrice` through `https://api.finmindtrade.com/api/v4/data`, one configured symbol at a time.
+- PTT Stock board title page, with `over18=1` cookie and title-level extraction only.
+- Yahoo Taiwan stock RSS by default, configurable through `RSS_FEED_URL`.
+
+Environment config:
+
+- `FINMIND_TOKEN` - 1Password reference locally, Cloudflare secret in production.
+- `FINMIND_SYMBOLS` - comma-separated Taiwan stock symbols to fetch from FinMind.
+- `RSS_FEED_URL` - defaults to Yahoo Taiwan stock news RSS.
+- `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
+
+The cron trigger runs the same live ingestion path. Source fetch failures are partial: a failed RSS/PTT/FinMind call is skipped so the remaining sources can still update the radar.
+
 ## Development
 
 ```bash

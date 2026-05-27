@@ -2,17 +2,24 @@ import { D1Repository } from "./repository/d1";
 import type { Repository } from "./repository/types";
 import { persistSourceEvents, recomputeCandidates, runIngestion, type IngestionSources } from "./ingest";
 import { verifyIngestSignature } from "./security";
+import { fetchLiveSources, type SourceEnv } from "./sources/live";
 
 interface AppOptions {
   repo: Repository;
   adminToken?: string;
   ingestToken?: string;
+  sourceEnv?: SourceEnv;
+  fetcher?: typeof fetch;
 }
 
 export interface WorkerEnv {
   DB?: ConstructorParameters<typeof D1Repository>[0];
   ADMIN_TOKEN?: string;
   INGEST_WEBHOOK_TOKEN?: string;
+  FINMIND_TOKEN?: string;
+  FINMIND_SYMBOLS?: string;
+  RSS_FEED_URL?: string;
+  PTT_STOCK_URL?: string;
 }
 
 export function createApp(options: AppOptions) {
@@ -27,7 +34,12 @@ export function appFromEnv(env: WorkerEnv) {
   if (!env.DB) {
     throw new Error("DB binding is required");
   }
-  return createApp({ repo: new D1Repository(env.DB), adminToken: env.ADMIN_TOKEN, ingestToken: env.INGEST_WEBHOOK_TOKEN });
+  return createApp({
+    repo: new D1Repository(env.DB),
+    adminToken: env.ADMIN_TOKEN,
+    ingestToken: env.INGEST_WEBHOOK_TOKEN,
+    sourceEnv: env
+  });
 }
 
 async function handleRequest(request: Request, options: AppOptions): Promise<Response> {
@@ -81,10 +93,15 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
       return json({ error: "Invalid ingestion payload" }, 400);
     }
 
+    const now = body.now ?? new Date().toISOString();
     await runIngestion({
       repo: options.repo,
-      now: body.now ?? new Date().toISOString(),
-      sources: body.sources
+      now,
+      sources: body.sources ?? await fetchLiveSources({
+        now,
+        env: options.sourceEnv ?? {},
+        fetcher: options.fetcher
+      })
     });
     return json({ candidateCount: (await options.repo.listCandidates()).length }, 202);
   }
@@ -152,12 +169,12 @@ function isWatchlistInput(input: unknown): input is { symbol: string; name: stri
     && typeof record.name === "string" && record.name.trim().length > 0;
 }
 
-function isAdminIngestInput(input: unknown): input is { now?: string; sources: IngestionSources } {
+function isAdminIngestInput(input: unknown): input is { now?: string; sources?: IngestionSources } {
   if (typeof input !== "object" || input === null) {
     return false;
   }
   const record = input as Record<string, unknown>;
-  return typeof record.sources === "object" && record.sources !== null
+  return (record.sources === undefined || (typeof record.sources === "object" && record.sources !== null))
     && (record.now === undefined || typeof record.now === "string");
 }
 
