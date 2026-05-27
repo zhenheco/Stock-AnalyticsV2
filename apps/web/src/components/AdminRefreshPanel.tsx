@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { readStoredAdminToken, storeAdminToken } from "../adminToken";
 
 interface AdminRefreshPanelProps {
   onRefresh: (adminToken: string) => Promise<{ candidateCount: number }>;
@@ -11,7 +12,7 @@ type RefreshState =
   | { status: "error"; message: string };
 
 export function AdminRefreshPanel({ onRefresh }: AdminRefreshPanelProps) {
-  const [adminToken, setAdminToken] = useState("");
+  const [adminToken, setAdminToken] = useState(() => readStoredAdminToken());
   const [state, setState] = useState<RefreshState>({ status: "idle" });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -24,6 +25,7 @@ export function AdminRefreshPanel({ onRefresh }: AdminRefreshPanelProps) {
 
     setState({ status: "running" });
     try {
+      storeAdminToken(token);
       const result = await onRefresh(token);
       setState({ status: "success", candidateCount: result.candidateCount });
     } catch (error) {

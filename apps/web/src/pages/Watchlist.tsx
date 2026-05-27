@@ -1,5 +1,6 @@
 import type { WatchlistEntry } from "@stock-analytics/shared";
 import { useState } from "react";
+import { readStoredAdminToken, storeAdminToken } from "../adminToken";
 
 interface WatchlistProps {
   entries: WatchlistEntry[];
@@ -9,20 +10,13 @@ interface WatchlistProps {
 export function Watchlist({ entries, onAdd }: WatchlistProps) {
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
-  const [adminToken, setAdminToken] = useState(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-    return window.localStorage.getItem("stock-analytics-admin-token") ?? "";
-  });
+  const [adminToken, setAdminToken] = useState(() => readStoredAdminToken());
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("stock-analytics-admin-token", adminToken);
-    }
+    storeAdminToken(adminToken);
     try {
       await onAdd?.({ symbol: symbol.trim(), name: name.trim(), adminToken });
       setSymbol("");

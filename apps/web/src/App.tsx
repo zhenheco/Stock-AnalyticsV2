@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import { addWatchlistEntry, fetchCandidates, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, triggerAdminIngest } from "./api";
+import { readStoredAdminToken } from "./adminToken";
 import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
 import { SourceHealth } from "./components/SourceHealth";
@@ -53,7 +54,7 @@ function RadarRoute() {
   }
 
   async function handleAddCandidateToWatchlist(candidate: Candidate) {
-    const adminToken = getStoredAdminToken() || window.prompt("Admin token")?.trim() || "";
+    const adminToken = readStoredAdminToken() || window.prompt("Admin token")?.trim() || "";
     if (!adminToken) {
       return;
     }
@@ -119,13 +120,6 @@ function RadarRoute() {
       </section>
     </main>
   );
-}
-
-function getStoredAdminToken(): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  return window.localStorage.getItem("stock-analytics-admin-token")?.trim() ?? "";
 }
 
 export function mergeWatchlistEntry(entries: WatchlistEntry[], entry: WatchlistEntry): WatchlistEntry[] {
