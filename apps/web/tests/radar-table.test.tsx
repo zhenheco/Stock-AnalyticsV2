@@ -34,6 +34,20 @@ describe("RadarTable", () => {
     expect(html).toContain("/stock/2330");
   });
 
+  it("renders source and event counts as a scan-friendly evidence summary", () => {
+    const html = renderToString(<RadarTable candidates={[
+      candidate({
+        symbol: "2330",
+        sourceCount: 3,
+        eventCount: 12,
+        sources: ["ptt", "rss", "finmind"]
+      })
+    ]} />);
+
+    expect(html).toContain("3 來源");
+    expect(html).toContain("12 事件");
+  });
+
   it("renders event category tags as part of candidate evidence", () => {
     const candidates: Candidate[] = [
       {

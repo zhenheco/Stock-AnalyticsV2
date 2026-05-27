@@ -130,6 +130,10 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                     <div className="event-cell">
                       <strong>{candidate.latestTitle}</strong>
                       <span>{candidate.reason}</span>
+                      <div className="evidence-mini">
+                        <span>{`${candidate.sourceCount} 來源`}</span>
+                        <span>{`${candidate.eventCount} 事件`}</span>
+                      </div>
                     </div>
                   </td>
                   <td>
