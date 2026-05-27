@@ -70,8 +70,9 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
 
   if (url.pathname === "/api/candidates" && request.method === "GET") {
     const candidates = await options.repo.listCandidates();
+    const limit = parseLimit(url.searchParams.get("limit"));
     return json({
-      candidates,
+      candidates: candidates.slice(0, limit),
       updatedAt: latestCandidateTime(candidates)
     });
   }
