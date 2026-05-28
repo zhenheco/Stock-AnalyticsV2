@@ -4,13 +4,16 @@ import { readStoredAdminToken, storeAdminToken } from "../adminToken";
 
 interface WatchlistProps {
   entries: WatchlistEntry[];
-  onAdd?: (input: { symbol: string; name?: string; adminToken: string }) => Promise<void>;
+  onAdd?: (input: { symbol: string; name?: string; note?: string; tags?: string[]; alertThreshold?: number; adminToken: string }) => Promise<void>;
   onRemove?: (input: { symbol: string; adminToken: string }) => Promise<void>;
 }
 
 export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
+  const [note, setNote] = useState("");
+  const [tags, setTags] = useState("");
+  const [alertThreshold, setAlertThreshold] = useState("");
   const [adminToken, setAdminToken] = useState(() => readStoredAdminToken());
   const [message, setMessage] = useState<string | null>(null);
 
@@ -19,9 +22,19 @@ export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
     setMessage(null);
     storeAdminToken(adminToken);
     try {
-      await onAdd?.({ symbol: symbol.trim(), name: name.trim(), adminToken });
+      await onAdd?.({
+        symbol: symbol.trim(),
+        name: name.trim(),
+        note: note.trim(),
+        tags: parseTags(tags),
+        ...(alertThreshold ? { alertThreshold: Number(alertThreshold) } : {}),
+        adminToken
+      });
       setSymbol("");
       setName("");
+      setNote("");
+      setTags("");
+      setAlertThreshold("");
       setMessage("已加入追蹤清單");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "新增失敗");
@@ -59,6 +72,18 @@ export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
           <input id="watch-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="留空自動帶股票主檔" />
         </div>
         <div>
+          <label htmlFor="watch-note">研究筆記</label>
+          <input id="watch-note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="觀察題材、風險或等待確認的事件" />
+        </div>
+        <div>
+          <label htmlFor="watch-tags">標籤</label>
+          <input id="watch-tags" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="AI, 半導體, 觀察" />
+        </div>
+        <div>
+          <label htmlFor="watch-alert">提醒門檻</label>
+          <input id="watch-alert" inputMode="decimal" value={alertThreshold} onChange={(event) => setAlertThreshold(event.target.value)} placeholder="8" />
+        </div>
+        <div>
           <label htmlFor="watch-token">管理 Token</label>
           <input id="watch-token" type="password" value={adminToken} onChange={(event) => setAdminToken(event.target.value)} placeholder="x-admin-token" required />
         </div>
@@ -75,6 +100,13 @@ export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
               <strong>{entry.symbol}</strong>
               <span>{entry.name}</span>
             </a>
+            {entry.note ? <p>{entry.note}</p> : null}
+            {entry.tags && entry.tags.length > 0 ? (
+              <div className="tag-list">
+                {entry.tags.map((tag) => <span key={tag}>{tag}</span>)}
+              </div>
+            ) : null}
+            {entry.alertThreshold !== undefined ? <small>{`提醒門檻 ${entry.alertThreshold}`}</small> : null}
             <time>{new Date(entry.addedAt).toLocaleDateString("zh-TW")}</time>
             {onRemove ? <button type="button" onClick={() => void handleRemove(entry.symbol)}>移除</button> : null}
           </div>
@@ -82,4 +114,12 @@ export function Watchlist({ entries, onAdd, onRemove }: WatchlistProps) {
       </section>
     </main>
   );
+}
+
+function parseTags(value: string): string[] {
+  return value
+    .split(/[,，]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 6);
 }

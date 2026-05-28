@@ -6,14 +6,15 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 
 ## Apps
 
-- `apps/worker` - Cloudflare Worker API, D1 migration, ingestion, lightweight Workers AI classification, scoring, HMAC social ingest.
-- `apps/web` - React/Vite dashboard for event candidates, stock research, and watchlist.
+- `apps/worker` - Cloudflare Worker API, D1 migration, ingestion, lightweight Workers AI classification, scoring, HMAC social ingest, and daily research snapshots.
+- `apps/web` - React/Vite dashboard for event candidates, stock research, watchlist, and daily drift reminders.
 - `packages/shared` - shared parsers, entity extraction, types, scoring, and LLM output validation.
 
 ## MVP Routes
 
 - `GET /api/candidates`
 - `GET /api/data-readiness`
+- `GET /api/snapshots`
 - `GET /api/stocks/:symbol/research`
 - `GET /api/watchlist`
 - `GET /api/source-runs`
@@ -22,6 +23,7 @@ The MVP focuses on research discovery, not trading advice. It combines lightweig
 - `DELETE /api/watchlist/:symbol` with `x-admin-token`
 - `POST /api/admin/run-ingest` with `x-admin-token`
 - `POST /api/admin/run-score` with `x-admin-token`
+- `POST /api/admin/snapshot` with `x-admin-token`
 - `POST /api/ingest/social` with `x-ingest-signature: sha256=<hmac>`
 
 ## Live Sources
@@ -37,7 +39,8 @@ Live ingestion currently connects:
 - PTT Stock board recent title pages, with `over18=1` cookie and title-level extraction only.
 - Yahoo Taiwan stock RSS and Liberty Times finance RSS in production, configurable through `RSS_FEED_URLS`.
 - TWSE official OpenAPI `newsList` from `https://openapi.twse.com.tw/v1/news/newsList` for tokenless exchange announcements and market news.
-- Optional Workers AI lightweight classification for short PTT/RSS/TWSE event titles.
+- MOPS material information from `https://mops.twse.com.tw/mops/web/t05sr01_1` as a separate official event source.
+- Optional Workers AI lightweight classification for short PTT/RSS/TWSE/MOPS event titles.
 
 Environment config:
 
@@ -46,6 +49,7 @@ Environment config:
 - `FINMIND_DYNAMIC_SYMBOL_LIMIT` - maximum watchlist/candidate symbols to add to FinMind price/chip/revenue fetching. Defaults to `20`, capped at `20` for Worker/API time budgets.
 - `RSS_FEED_URLS` / `RSS_FEED_URL` - comma-separated RSS feeds. Production uses Yahoo Taiwan stock news plus Liberty Times finance RSS after live smoke checks; failed feeds are reported as partial while healthy feeds still ingest.
 - `TWSE_NEWS_URL` - TWSE official OpenAPI news endpoint. Defaults to `https://openapi.twse.com.tw/v1/news/newsList`.
+- `MOPS_MATERIAL_URL` - MOPS material information endpoint. Defaults to `https://mops.twse.com.tw/mops/web/t05sr01_1`.
 - `PTT_STOCK_URL` - defaults to `https://www.ptt.cc/bbs/Stock/index.html`.
 - `PTT_STOCK_PAGES` - number of recent PTT Stock board pages to fetch. Defaults to `1`, capped at `5`; production uses `3`.
 - `LLM_CLASSIFIER_ENABLED` - set to `true` to use the Cloudflare Workers AI binding for short-text event classification.
@@ -59,16 +63,17 @@ Percentage figures are removed before numeric symbol extraction, so a title such
 
 FinMind price/chip/revenue ingestion combines configured `FINMIND_SYMBOLS` with current watchlist and candidate symbols, de-duplicates them, and applies `FINMIND_DYNAMIC_SYMBOL_LIMIT` to stay within Worker/API time budgets. If `FINMIND_TOKEN` is missing, it uses anonymous limited requests when FinMind allows them; adding the token improves quota stability. FinMind rows trust the structured `stock_id` field so volume numbers are not misread as stock symbols.
 
-Classification stores only lightweight fields: sentiment `1-5`, up to three event tags, and one short reason. If Workers AI is unavailable, invalid, over limit, or the event is structured FinMind data, ingestion falls back to the deterministic classifier. TWSE official rows are kept as first-party evidence links and scored as official event signals.
+Classification stores only lightweight fields: sentiment `1-5`, up to three event tags, confidence, and one short reason. If Workers AI is unavailable, invalid, over limit, or the event is structured FinMind data, ingestion falls back to the deterministic classifier. TWSE and MOPS official rows are kept as first-party evidence links and scored as official event signals.
 
-Scoring favors research catalysts such as AI, industry demand, revenue, and price/volume events. Formal announcements are still retained as evidence but are discounted so they do not crowd out stronger research signals.
+Scoring favors research catalysts such as AI, industry demand, revenue, and price/volume events. Candidate scores are broken into event strength, source confidence, freshness, cross-source boost, and watchlist boost. Same-source duplicate story titles are collapsed before scoring, while formal announcements are still retained as evidence but discounted so they do not crowd out stronger research signals.
 
 ## Dashboard
 
 - Radar page shows candidate stocks and source health.
 - Data readiness panel summarizes candidate, universe, social/news, and FinMind price/chip/revenue connection state.
+- Daily drift panel shows new symbols, dropped symbols, score changes, and source status counts from snapshots.
 - Stock detail page shows event evidence, watchlist controls, and links out to TradingView instead of storing full historical price data.
-- Watchlist page includes a personal add form. The admin token is sent as `x-admin-token` and cached in browser local storage for convenience.
+- Watchlist page includes a personal add form with notes, tags, and score alert threshold. The admin token is sent as `x-admin-token` and cached in browser local storage for convenience.
 
 ## Development
 
@@ -130,7 +135,7 @@ curl https://stock-analytics-v2-worker.acejou27.workers.dev/api/source-runs
 curl "https://stock-analytics-v2-worker.acejou27.workers.dev/api/universe?limit=0"
 ```
 
-`pnpm check:production:smoke` reads `ADMIN_TOKEN` from 1Password, triggers live ingestion, then verifies candidate count plus PTT/RSS/TWSE source runs. It reports counts and statuses only; it does not print raw secrets.
+`pnpm check:production:smoke` reads `ADMIN_TOKEN` from 1Password, triggers live ingestion, then verifies candidate count plus PTT/RSS/TWSE/MOPS source runs. It reports counts and statuses only; it does not print raw secrets.
 `pnpm check:production` checks the deployed Pages bundle, Worker readiness, top candidate source contribution counts, and FinMind token presence without printing raw secrets.
 `pnpm check:production:ready` runs the same checks and exits non-zero until all readiness checks, top candidate source counts, and Pages assets are ready. A missing FinMind token is allowed when anonymous FinMind signal rows are flowing.
 

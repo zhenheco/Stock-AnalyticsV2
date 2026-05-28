@@ -1,34 +1,51 @@
-import type { Candidate, EventRecord, SourceKind } from "./types";
+import type { Candidate, EventRecord, ScoreBreakdown, SourceKind } from "./types";
 
 const SOURCE_WEIGHTS: Record<SourceKind, number> = {
   ptt: 1,
   rss: 1.2,
   finmind: 0.8,
-  twse: 1.1
+  twse: 1.3,
+  mops: 1.6
 };
 
-export function scoreCandidates(events: EventRecord[], names: Record<string, string> = {}): Candidate[] {
+interface ScoreOptions {
+  watchlistSymbols?: ReadonlySet<string>;
+}
+
+export function scoreCandidates(events: EventRecord[], names: Record<string, string> = {}, options: ScoreOptions = {}): Candidate[] {
   const groups = new Map<string, EventRecord[]>();
   for (const event of events) {
     groups.set(event.symbol, [...(groups.get(event.symbol) ?? []), event]);
   }
 
   return [...groups.entries()]
-    .map(([symbol, symbolEvents]) => toCandidate(symbol, symbolEvents, names[symbol] ?? symbol))
+    .map(([symbol, symbolEvents]) => toCandidate(symbol, dedupeSymbolEvents(symbolEvents), names[symbol] ?? symbol, options))
     .sort((left, right) => right.score - left.score || right.latestAt.localeCompare(left.latestAt));
 }
 
-function toCandidate(symbol: string, events: EventRecord[], name: string): Candidate {
+function toCandidate(symbol: string, events: EventRecord[], name: string, options: ScoreOptions): Candidate {
   const sorted = [...events].sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
   const latest = sorted[0];
   const sources = unique(events.map((event) => event.source));
   const tags = unique(events.flatMap((event) => event.tags)).slice(0, 5);
   const engagementScore = Math.log10(1 + Math.max(0, sum(events.map((event) => event.engagement))));
   const sentimentScore = average(events.map((event) => event.sentiment)) - 3;
-  const sourceScore = sources.reduce((total, source) => total + SOURCE_WEIGHTS[source], 0);
-  const eventScore = sum(events.map(eventWeight)) * 1.5;
-  const catalystScore = sum(events.map(catalystWeight));
-  const rawScore = eventScore + sourceScore * 1.8 + engagementScore + sentimentScore + catalystScore;
+  const eventStrength = round(sum(events.map(eventWeight)) * 1.5 + catalystScore(events));
+  const sourceConfidence = round(sources.reduce((total, source) => total + SOURCE_WEIGHTS[source], 0));
+  const freshness = round(freshnessWeight(latest?.publishedAt));
+  const crossSourceBoost = round(Math.max(0, sources.length - 1) * 1.2);
+  const watchlistBoost = options.watchlistSymbols?.has(symbol) ? 0.5 : 0;
+  const scoreBreakdown: ScoreBreakdown = {
+    eventStrength,
+    sourceConfidence,
+    freshness,
+    crossSourceBoost,
+    watchlistBoost
+  };
+  const rawScore = events.every((event) => event.tags.includes("公告"))
+    ? 0
+    : eventStrength + sourceConfidence * 1.8 + engagementScore + sentimentScore + freshness + crossSourceBoost + watchlistBoost;
+  const confidenceScore = confidenceFrom(events, sources);
 
   return {
     symbol,
@@ -41,8 +58,22 @@ function toCandidate(symbol: string, events: EventRecord[], name: string): Candi
     latestAt: latest?.publishedAt ?? "",
     sources,
     tags,
-    reason: latest?.reason ?? "事件訊號浮現"
+    reason: candidateReason(events, latest?.reason),
+    scoreBreakdown,
+    confidenceScore
   };
+}
+
+function dedupeSymbolEvents(events: EventRecord[]): EventRecord[] {
+  const byStory = new Map<string, EventRecord>();
+  for (const event of events) {
+    const key = `${event.symbol}:${event.source}:${normalizeStoryTitle(event.title)}`;
+    const current = byStory.get(key);
+    if (!current || event.publishedAt > current.publishedAt) {
+      byStory.set(key, event);
+    }
+  }
+  return [...byStory.values()];
 }
 
 function countBySource(events: EventRecord[]): Partial<Record<SourceKind, number>> {
@@ -78,6 +109,10 @@ function eventWeight(event: EventRecord): number {
   return 1;
 }
 
+function catalystScore(events: EventRecord[]): number {
+  return sum(events.map(catalystWeight));
+}
+
 function catalystWeight(event: EventRecord): number {
   return event.tags.reduce((total, tag) => {
     if (tag === "公告") {
@@ -94,4 +129,66 @@ function catalystWeight(event: EventRecord): number {
     }
     return total;
   }, 0);
+}
+
+function freshnessWeight(value: string | undefined): number {
+  if (!value) {
+    return 0;
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  const ageHours = Math.max(0, (Date.now() - parsed) / 36e5);
+  if (ageHours <= 24) {
+    return 1.5;
+  }
+  if (ageHours <= 72) {
+    return 0.8;
+  }
+  return 0.2;
+}
+
+function confidenceFrom(events: EventRecord[], sources: SourceKind[]): number {
+  const sourceTrust = sources.reduce((total, source) => {
+    if (source === "mops") {
+      return total + 36;
+    }
+    if (source === "twse") {
+      return total + 32;
+    }
+    if (source === "rss") {
+      return total + 20;
+    }
+    if (source === "finmind") {
+      return total + 16;
+    }
+    return total + 10;
+  }, 0);
+  const multiSource = Math.max(0, sources.length - 1) * 12;
+  const eventDepth = Math.min(18, events.length * 4);
+  const explicitConfidence = average(events.flatMap((event) => typeof event.confidenceScore === "number" ? [event.confidenceScore] : []));
+  const fallback = sourceTrust + multiSource + eventDepth;
+  return Math.min(100, Math.round(explicitConfidence === 3 ? fallback : (fallback + explicitConfidence) / 2));
+}
+
+function candidateReason(events: EventRecord[], fallback: string | undefined): string {
+  const sources = new Set(events.map((event) => event.source));
+  if (sources.has("mops")) {
+    return "MOPS 官方重訊與其他事件訊號共振";
+  }
+  if (sources.has("twse")) {
+    return "TWSE 官方訊息與其他事件訊號共振";
+  }
+  if (sources.size > 1) {
+    return "多來源事件訊號共振";
+  }
+  return fallback ?? "事件訊號浮現";
+}
+
+function normalizeStoryTitle(title: string): string {
+  return title
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/[【】\[\]\(\)（）:：,，.。!！?\s]/g, "")
+    .toLowerCase();
 }

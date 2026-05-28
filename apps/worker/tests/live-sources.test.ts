@@ -113,6 +113,51 @@ describe("fetchLiveSources", () => {
     ]));
   });
 
+  it("fetches MOPS material information as a separate official event source", async () => {
+    const requested: string[] = [];
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html",
+        MOPS_MATERIAL_URL: "https://mops.test/material.json"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        requested.push(url);
+        if (url.includes("mops.test")) {
+          return jsonResponse({
+            data: [
+              {
+                companyId: "2330",
+                companyName: "台積電",
+                title: "代子公司公告取得機器設備",
+                url: "https://mops.test/detail/2330",
+                date: "115/05/27",
+                time: "18:30:00"
+              }
+            ]
+          });
+        }
+        if (url.includes("TaiwanStockInfo")) {
+          return jsonResponse({ data: [] });
+        }
+        if (url.includes("openapi.twse.com.tw")) {
+          return jsonResponse([]);
+        }
+        return textResponse("");
+      }
+    });
+
+    expect(requested).toContain("https://mops.test/material.json");
+    expect(result.sources.mopsMaterialRows).toEqual([
+      expect.objectContaining({ companyId: "2330", title: "代子公司公告取得機器設備" })
+    ]);
+    expect(result.runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "mops", status: "ok", itemCount: 1 })
+    ]));
+  });
+
   it("returns partial source data when one source fails", async () => {
     const result = await fetchLiveSources({
       now: "2026-05-27T05:00:00.000Z",

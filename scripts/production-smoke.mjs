@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_ADMIN_REF = "op://Dev/stock-analytics-v2/ADMIN_TOKEN";
 const WORKER_URL = "https://stock-analytics-v2-worker.acejou27.workers.dev";
-const REQUIRED_TOKENLESS_SOURCES = ["ptt", "rss", "twse"];
+const REQUIRED_TOKENLESS_SOURCES = ["ptt", "rss", "twse", "mops"];
 
 export function summarizeProductionSmoke(input) {
   const topCandidate = input.candidates.candidates[0];
@@ -127,7 +127,7 @@ function run(command, args, options = {}) {
 }
 
 function formatSourceRuns(runs) {
-  return ["ptt", "rss", "twse", "finmind"]
+  return ["ptt", "rss", "twse", "mops", "finmind"]
     .map((source) => {
       const run = latestRunForSource(runs, source);
       return `${source}=${run?.status ?? "missing"}:${run?.itemCount ?? 0}`;
@@ -145,7 +145,7 @@ function formatSourceEventCounts(counts) {
   if (!counts || Object.keys(counts).length === 0) {
     return "missing";
   }
-  return ["finmind", "rss", "ptt", "twse"]
+  return ["finmind", "rss", "ptt", "twse", "mops"]
     .filter((source) => Number.isFinite(counts[source]))
     .map((source) => `${source}:${counts[source]}`)
     .join(",");

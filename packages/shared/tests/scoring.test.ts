@@ -148,6 +148,63 @@ describe("scoreCandidates", () => {
 
     expect(candidates[0]?.score).toBe(0);
   });
+
+  it("deduplicates same-story events and exposes a score breakdown for research explainability", () => {
+    const candidates = scoreCandidates([
+      {
+        id: "rss-story",
+        source: "rss",
+        symbol: "2330",
+        title: "台積電 AI 訂單升溫",
+        url: "https://news.test/2330",
+        publishedAt: "2026-05-27T04:00:00.000Z",
+        engagement: 0,
+        tags: ["AI", "產業題材"],
+        sentiment: 4,
+        reason: "新聞事件"
+      },
+      {
+        id: "rss-story-copy",
+        source: "rss",
+        symbol: "2330",
+        title: "台積電 AI 訂單升溫",
+        url: "https://mirror.test/2330",
+        publishedAt: "2026-05-27T04:05:00.000Z",
+        engagement: 0,
+        tags: ["AI", "產業題材"],
+        sentiment: 4,
+        reason: "同題新聞轉載"
+      },
+      {
+        id: "twse-story",
+        source: "twse",
+        symbol: "2330",
+        title: "台積電 重大訊息說明 AI 先進製程需求",
+        url: "https://twse.test/2330",
+        publishedAt: "2026-05-27T04:10:00.000Z",
+        engagement: 0,
+        tags: ["官方訊息", "AI"],
+        sentiment: 4,
+        reason: "官方事件"
+      }
+    ], { "2330": "台積電" });
+
+    expect(candidates[0]).toMatchObject({
+      symbol: "2330",
+      eventCount: 2,
+      sourceCount: 2,
+      sourceEventCounts: { rss: 1, twse: 1 },
+      scoreBreakdown: {
+        eventStrength: expect.any(Number),
+        sourceConfidence: expect.any(Number),
+        freshness: expect.any(Number),
+        crossSourceBoost: expect.any(Number),
+        watchlistBoost: 0
+      }
+    });
+    expect(candidates[0]?.confidenceScore).toBeGreaterThanOrEqual(70);
+    expect(candidates[0]?.reason).toContain("官方");
+  });
 });
 
 describe("validateLlmClassification", () => {

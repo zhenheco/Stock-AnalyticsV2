@@ -377,6 +377,34 @@ describe("worker routes", () => {
     expect(body.watchlist).toEqual([{ symbol: "2330", name: "台積電", addedAt: expect.any(String) }]);
   });
 
+  it("stores watchlist research notes, tags, and alert thresholds", async () => {
+    const app = createApp({ repo: new MemoryRepository(), adminToken: "secret" });
+
+    const created = await app.fetch(new Request("https://api.test/api/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-token": "secret" },
+      body: JSON.stringify({
+        symbol: "2330",
+        name: "台積電",
+        note: "觀察 AI 需求與先進封裝",
+        tags: ["AI", "半導體"],
+        alertThreshold: 8
+      })
+    }));
+    const listed = await app.fetch(new Request("https://api.test/api/watchlist"));
+    const body = await listed.json() as { watchlist: unknown[] };
+
+    expect(created.status).toBe(201);
+    expect(body.watchlist).toEqual([
+      expect.objectContaining({
+        symbol: "2330",
+        note: "觀察 AI 需求與先進封裝",
+        tags: ["AI", "半導體"],
+        alertThreshold: 8
+      })
+    ]);
+  });
+
   it("fills watchlist names from universe when only a symbol is supplied", async () => {
     const repo = new MemoryRepository();
     await repo.upsertUniverse([{
@@ -701,6 +729,43 @@ describe("worker routes", () => {
         message: "signed social ingest accepted"
       })
     ]);
+  });
+
+  it("creates and returns daily snapshots with drift from previous candidates", async () => {
+    const repo = new MemoryRepository();
+    await repo.saveCandidates([
+      candidate({ symbol: "2330", score: 8.2, latestAt: "2026-05-26T23:30:00.000Z" }),
+      candidate({ symbol: "2317", score: 7.1, latestAt: "2026-05-26T23:00:00.000Z" })
+    ]);
+    await repo.saveSourceRuns([sourceRun({ source: "rss", status: "ok", itemCount: 5 })]);
+    const app = createApp({ repo, adminToken: "secret", now: () => "2026-05-27T00:00:00.000Z" });
+    const first = await app.fetch(new Request("https://api.test/api/admin/snapshot", {
+      method: "POST",
+      headers: { "x-admin-token": "secret" }
+    }));
+
+    await repo.saveCandidates([
+      candidate({ symbol: "2330", score: 9.4, latestAt: "2026-05-27T01:30:00.000Z" }),
+      candidate({ symbol: "2454", name: "聯發科", score: 8.8, latestAt: "2026-05-27T01:00:00.000Z" })
+    ]);
+    const second = await app.fetch(new Request("https://api.test/api/admin/snapshot", {
+      method: "POST",
+      headers: { "x-admin-token": "secret" }
+    }));
+    const listed = await app.fetch(new Request("https://api.test/api/snapshots?limit=1"));
+    const body = await listed.json() as any;
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(body.snapshots[0]).toMatchObject({
+      candidateCount: 2,
+      topSymbols: ["2330", "2454"],
+      drift: {
+        newSymbols: ["2454"],
+        droppedSymbols: ["2317"],
+        scoreChanges: [expect.objectContaining({ symbol: "2330", from: 8.2, to: 9.4 })]
+      }
+    });
   });
 });
 

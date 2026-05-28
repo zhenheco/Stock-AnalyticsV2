@@ -21,7 +21,7 @@ export interface ProductionHealthInput {
     candidates: Array<{
       symbol: string;
       name: string;
-      sourceEventCounts?: Partial<Record<"finmind" | "rss" | "ptt" | "twse", number>>;
+      sourceEventCounts?: Partial<Record<"finmind" | "rss" | "ptt" | "twse" | "mops", number>>;
     }>;
   };
   finmindToken: string;

@@ -85,7 +85,7 @@ function formatSourceEventCounts(counts) {
   if (!counts || Object.keys(counts).length === 0) {
     return "missing";
   }
-  return ["finmind", "rss", "ptt", "twse"]
+  return ["finmind", "rss", "ptt", "twse", "mops"]
     .filter((source) => Number.isFinite(counts[source]))
     .map((source) => `${source}:${counts[source]}`)
     .join(",");

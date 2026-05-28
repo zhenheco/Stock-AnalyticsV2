@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, DailySnapshot, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 
 export interface Repository {
   listCandidates(): Promise<Candidate[]>;
@@ -15,4 +15,6 @@ export interface Repository {
   listWatchlist(): Promise<WatchlistEntry[]>;
   addWatchlist(entry: Omit<WatchlistEntry, "addedAt">): Promise<WatchlistEntry>;
   removeWatchlist(symbol: string): Promise<boolean>;
+  listSnapshots(limit?: number): Promise<DailySnapshot[]>;
+  saveSnapshot(snapshot: DailySnapshot): Promise<void>;
 }

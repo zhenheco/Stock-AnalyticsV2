@@ -1,4 +1,4 @@
-import type { Candidate, DataReadiness, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, DailySnapshot, DataReadiness, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -25,7 +25,7 @@ export async function fetchWatchlist(): Promise<{ watchlist: WatchlistEntry[] }>
   return fetchJson<{ watchlist: WatchlistEntry[] }>("/api/watchlist");
 }
 
-export async function addWatchlistEntry(input: { symbol: string; name?: string; adminToken: string }): Promise<WatchlistEntry> {
+export async function addWatchlistEntry(input: { symbol: string; name?: string; note?: string; tags?: string[]; alertThreshold?: number; adminToken: string }): Promise<WatchlistEntry> {
   return fetchJson<WatchlistEntry>("/api/watchlist", {
     method: "POST",
     headers: {
@@ -34,7 +34,10 @@ export async function addWatchlistEntry(input: { symbol: string; name?: string; 
     },
     body: JSON.stringify({
       symbol: input.symbol,
-      ...(input.name?.trim() ? { name: input.name.trim() } : {})
+      ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+      ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+      ...(input.tags && input.tags.length > 0 ? { tags: input.tags } : {}),
+      ...(typeof input.alertThreshold === "number" ? { alertThreshold: input.alertThreshold } : {})
     })
   });
 }
@@ -54,6 +57,10 @@ export async function fetchSourceRuns(): Promise<{ runs: SourceRun[] }> {
 
 export async function fetchDataReadiness(): Promise<DataReadiness> {
   return fetchJson<DataReadiness>("/api/data-readiness");
+}
+
+export async function fetchSnapshots(): Promise<{ snapshots: DailySnapshot[] }> {
+  return fetchJson<{ snapshots: DailySnapshot[] }>("/api/snapshots?limit=3");
 }
 
 export async function fetchUniverse(): Promise<{ stocks: UniverseStock[]; count: number }> {

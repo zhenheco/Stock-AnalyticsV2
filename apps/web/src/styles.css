@@ -314,6 +314,27 @@ h2 {
   padding: 3px 7px;
 }
 
+.score-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.score-breakdown span,
+.confidence-chip {
+  border: 1px solid rgba(102, 209, 143, 0.36);
+  border-radius: 999px;
+  color: #d9ffe7;
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 3px 7px;
+}
+
+.confidence-chip {
+  margin-top: 6px;
+}
+
 .score-meter {
   position: relative;
   width: 92px;
@@ -372,6 +393,10 @@ h2 {
   background: #ef6f6c;
 }
 
+.source-mops {
+  background: #b88cff;
+}
+
 .source-pills,
 .tag-list {
   display: flex;
@@ -406,6 +431,43 @@ h2 {
 
 .source-health {
   margin-bottom: 22px;
+}
+
+.snapshot-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 22px;
+  padding: 18px;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.snapshot-grid article {
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 3px solid var(--amber);
+  min-height: 104px;
+  padding: 12px;
+}
+
+.snapshot-grid span {
+  color: var(--muted);
+}
+
+.snapshot-grid strong {
+  color: #fff4cf;
+  display: block;
+  font-size: 1.6rem;
+  margin-top: 6px;
+}
+
+.snapshot-grid p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 8px 0 0;
 }
 
 .research-notice {
@@ -865,7 +927,7 @@ h2 {
 
 .watchlist-form {
   display: grid;
-  grid-template-columns: minmax(120px, 160px) minmax(160px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(110px, 140px) minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(130px, 0.8fr) minmax(110px, 0.6fr) minmax(170px, 1fr) auto;
   gap: 10px;
   align-items: end;
   border-top: 1px solid var(--line);
@@ -912,7 +974,7 @@ h2 {
 
 .watch-row {
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.8fr) minmax(120px, auto) auto auto;
   color: inherit;
 }
 
@@ -940,6 +1002,7 @@ h2 {
   .chart-band,
   .summary-grid,
   .lane-grid,
+  .snapshot-grid,
   .readiness-summary {
     grid-template-columns: 1fr;
   }

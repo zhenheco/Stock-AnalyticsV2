@@ -1,5 +1,5 @@
 import { extractMentionedSymbols } from "./entity";
-import type { FinMindRow, FinMindStockInfoRow, SecurityType, SourceEvent, TwseNewsRow, UniverseStock } from "./types";
+import type { FinMindRow, FinMindStockInfoRow, MopsMaterialInfoRow, SecurityType, SourceEvent, TwseNewsRow, UniverseStock } from "./types";
 
 export function parsePttTitles(
   html: string,
@@ -89,6 +89,26 @@ export function normalizeTwseNewsRows(
       publishedAt: parseRocDate(row.Date),
       engagement: 0,
       symbols
+    }];
+  });
+}
+
+export function normalizeMopsMaterialInfoRows(rows: MopsMaterialInfoRow[], fallbackUrl = "https://mops.twse.com.tw/mops/web/t05sr01_1"): SourceEvent[] {
+  return rows.flatMap((row) => {
+    const symbol = normalizeSymbol(row.companyId);
+    const name = row.companyName?.trim() ?? "";
+    const rawTitle = decodeHtml(textContent(row.title ?? ""));
+    if (!/^\d{4,6}[A-Z]?$/.test(symbol) || !rawTitle) {
+      return [];
+    }
+
+    return [{
+      source: "mops" as const,
+      title: `${symbol}${name ? ` ${name}` : ""} ${rawTitle}`,
+      url: decodeHtml((row.url ?? fallbackUrl).trim()) || fallbackUrl,
+      publishedAt: parseMopsDateTime(row.date, row.time),
+      engagement: 0,
+      symbols: [symbol]
     }];
   });
 }
@@ -276,6 +296,21 @@ function parseRocDate(value: string | undefined): string {
   const month = normalized.slice(3, 5);
   const day = normalized.slice(5, 7);
   return `${year}-${month}-${day}T00:00:00.000+08:00`;
+}
+
+function parseMopsDateTime(date: string | undefined, time: string | undefined): string {
+  const normalizedDate = (date ?? "").replace(/\D/g, "");
+  if (!/^\d{7}$/.test(normalizedDate)) {
+    return new Date(0).toISOString();
+  }
+  const year = Number(normalizedDate.slice(0, 3)) + 1911;
+  const month = normalizedDate.slice(3, 5);
+  const day = normalizedDate.slice(5, 7);
+  const normalizedTime = (time ?? "00:00:00").match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  const hour = normalizedTime?.[1]?.padStart(2, "0") ?? "00";
+  const minute = normalizedTime?.[2] ?? "00";
+  const second = normalizedTime?.[3] ?? "00";
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}.000+08:00`;
 }
 
 function formatNumber(value: number): string {

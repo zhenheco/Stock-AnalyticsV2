@@ -1,6 +1,6 @@
 import { D1Repository } from "./repository/d1";
 import type { Repository } from "./repository/types";
-import { countRssItems, parsePttTitles, type DataReadiness, type ReadinessCheck, type ReadinessStatus, type SourceRun } from "@stock-analytics/shared";
+import { countRssItems, parsePttTitles, type Candidate, type DailySnapshot, type DataReadiness, type ReadinessCheck, type ReadinessStatus, type SourceRun } from "@stock-analytics/shared";
 import { persistSourceEvents, recomputeCandidates, runIngestion, type IngestionSources } from "./ingest";
 import { verifyIngestSignature } from "./security";
 import { fetchLiveSources, type SourceEnv } from "./sources/live";
@@ -29,6 +29,7 @@ export interface WorkerEnv {
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   TWSE_NEWS_URL?: string;
+  MOPS_MATERIAL_URL?: string;
   PTT_STOCK_URL?: string;
   PTT_STOCK_PAGES?: string;
   AI?: WorkersAiBinding;
@@ -86,6 +87,10 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     return json(await dataReadiness(options.repo, options.now?.() ?? new Date().toISOString()));
   }
 
+  if (url.pathname === "/api/snapshots" && request.method === "GET") {
+    return json({ snapshots: await options.repo.listSnapshots(parseLimit(url.searchParams.get("limit"))) });
+  }
+
   if (url.pathname === "/api/universe" && request.method === "GET") {
     const limit = parseLimit(url.searchParams.get("limit"));
     return json({
@@ -118,7 +123,13 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
     }
     const symbol = body.symbol.toUpperCase();
     const name = body.name?.trim() || await findUniverseName(options.repo, symbol) || symbol;
-    const entry = await options.repo.addWatchlist({ symbol, name });
+    const entry = await options.repo.addWatchlist({
+      symbol,
+      name,
+      ...(body.note?.trim() ? { note: body.note.trim() } : {}),
+      ...(body.tags && body.tags.length > 0 ? { tags: body.tags } : {}),
+      ...(typeof body.alertThreshold === "number" ? { alertThreshold: body.alertThreshold } : {})
+    });
     return json(entry, 201);
   }
 
@@ -176,6 +187,17 @@ async function handleRequest(request: Request, options: AppOptions): Promise<Res
       classifierLimit: options.classifierLimit
     });
     return json({ candidateCount: (await options.repo.listCandidates()).length }, 202);
+  }
+
+  if (url.pathname === "/api/admin/snapshot" && request.method === "POST") {
+    const denied = requireAdmin(request, options.adminToken);
+    if (denied) {
+      return denied;
+    }
+
+    const snapshot = await createDailySnapshot(options.repo, options.now?.() ?? new Date().toISOString());
+    await options.repo.saveSnapshot(snapshot);
+    return json(snapshot, 201);
   }
 
   if (url.pathname === "/api/ingest/social" && request.method === "POST") {
@@ -301,20 +323,21 @@ function checkSocialEvents(latestRuns: SourceRun[], now: string): ReadinessCheck
 
 function checkOfficialEvents(latestRuns: SourceRun[], now: string): ReadinessCheck {
   const twse = latestRuns.find((run) => run.source === "twse");
-  if (twse && !isFreshRun(twse, now)) {
+  const mops = latestRuns.find((run) => run.source === "mops");
+  if ((twse && !isFreshRun(twse, now)) || (mops && !isFreshRun(mops, now))) {
     return {
       id: "official-events",
       label: "官方公告",
       status: "degraded",
-      message: `TWSE 官方 OpenAPI newsList 最近一次同步已超過 ${SOURCE_FRESHNESS_HOURS} 小時，請檢查 cron 或手動同步`
+      message: `TWSE/MOPS 官方來源最近一次同步已超過 ${SOURCE_FRESHNESS_HOURS} 小時，請檢查 cron 或手動同步`
     };
   }
-  if (twse?.status === "ok") {
+  if (twse?.status === "ok" || mops?.status === "ok") {
     return {
       id: "official-events",
       label: "官方公告",
       status: "ready",
-      message: "TWSE 官方 OpenAPI newsList 最近一次同步正常"
+      message: mops?.status === "ok" ? "TWSE/MOPS 官方來源最近一次同步正常" : "TWSE 官方 OpenAPI newsList 最近一次同步正常"
     };
   }
   return {
@@ -401,13 +424,16 @@ function parseLimit(value: string | null): number {
   return Math.min(Math.max(Math.trunc(parsed), 0), 500);
 }
 
-function isWatchlistInput(input: unknown): input is { symbol: string; name?: string } {
+function isWatchlistInput(input: unknown): input is { symbol: string; name?: string; note?: string; tags?: string[]; alertThreshold?: number } {
   if (typeof input !== "object" || input === null) {
     return false;
   }
   const record = input as Record<string, unknown>;
   return typeof record.symbol === "string" && isValidSymbol(record.symbol)
-    && (record.name === undefined || (typeof record.name === "string" && record.name.trim().length > 0));
+    && (record.name === undefined || (typeof record.name === "string" && record.name.trim().length > 0))
+    && (record.note === undefined || typeof record.note === "string")
+    && (record.tags === undefined || (Array.isArray(record.tags) && record.tags.every((tag) => typeof tag === "string" && tag.trim().length > 0)))
+    && (record.alertThreshold === undefined || (typeof record.alertThreshold === "number" && record.alertThreshold >= 0 && record.alertThreshold <= 20));
 }
 
 async function findUniverseName(repo: Repository, symbol: string): Promise<string | null> {
@@ -477,6 +503,7 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
   const pttItemCount = sources.pttHtml ? parsePttTitles(sources.pttHtml).length : 0;
   const rssItemCount = sources.rssXml ? countRssItems(sources.rssXml) : 0;
   const twseItemCount = sources.twseNewsRows?.length ?? 0;
+  const mopsItemCount = sources.mopsMaterialRows?.length ?? 0;
 
   return [
     ...(sources.pttHtml ? [{
@@ -503,6 +530,14 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       finishedAt: now,
       itemCount: twseItemCount
     }] : []),
+    ...(mopsItemCount > 0 ? [{
+      id: `mops:${now}`,
+      source: "mops" as const,
+      status: "ok" as const,
+      startedAt: now,
+      finishedAt: now,
+      itemCount: mopsItemCount
+    }] : []),
     ...(finmindItemCount > 0 ? [{
       id: `finmind:${now}`,
       source: "finmind" as const,
@@ -512,6 +547,70 @@ function deriveFixtureSourceRuns(sources: IngestionSources, now: string) {
       itemCount: finmindItemCount
     }] : [])
   ];
+}
+
+export async function createDailySnapshot(repo: Repository, now: string): Promise<DailySnapshot> {
+  const [candidates, runs, previous] = await Promise.all([
+    repo.listCandidates(),
+    repo.listSourceRuns(),
+    repo.listSnapshots(1)
+  ]);
+  const topCandidates = candidates.slice(0, 20);
+  const previousSymbols = previous[0]?.topSymbols ?? [];
+  const previousScores = previousScoreMap(previous[0], candidates);
+  const currentScores = new Map(topCandidates.map((candidate) => [candidate.symbol, candidate.score]));
+  return {
+    id: `snapshot:${now}`,
+    createdAt: now,
+    candidateCount: candidates.length,
+    topSymbols: topCandidates.slice(0, 10).map((candidate) => candidate.symbol),
+    scores: Object.fromEntries(topCandidates.map((candidate) => [candidate.symbol, candidate.score])),
+    sourceStatusCounts: countRunStatuses(runs),
+    drift: {
+      newSymbols: topCandidates.map((candidate) => candidate.symbol).filter((symbol) => !previousSymbols.includes(symbol)).slice(0, 10),
+      droppedSymbols: previousSymbols.filter((symbol) => !currentScores.has(symbol)).slice(0, 10),
+      scoreChanges: topCandidates
+        .flatMap((candidate) => {
+          const from = previousScores.get(candidate.symbol);
+          if (from === undefined || Math.abs(candidate.score - from) < 0.5) {
+            return [];
+          }
+          return [{
+            symbol: candidate.symbol,
+            from,
+            to: candidate.score,
+            delta: Math.round((candidate.score - from) * 10) / 10
+          }];
+        })
+        .slice(0, 10)
+    }
+  };
+}
+
+function previousScoreMap(previous: DailySnapshot | undefined, currentCandidates: Candidate[]): Map<string, number> {
+  if (!previous) {
+    return new Map();
+  }
+  if (previous.scores) {
+    return new Map(Object.entries(previous.scores));
+  }
+  const changes = new Map(previous.drift.scoreChanges.map((change) => [change.symbol, change.to]));
+  for (const symbol of previous.topSymbols) {
+    if (!changes.has(symbol)) {
+      const current = currentCandidates.find((candidate) => candidate.symbol === symbol);
+      if (current) {
+        changes.set(symbol, current.score);
+      }
+    }
+  }
+  return changes;
+}
+
+function countRunStatuses(runs: SourceRun[]): DailySnapshot["sourceStatusCounts"] {
+  return runs.reduce<DailySnapshot["sourceStatusCounts"]>((counts, run) => ({
+    ...counts,
+    [run.status]: (counts[run.status] ?? 0) + 1
+  }), { ok: 0, partial: 0, failed: 0 });
 }
 
 async function listDynamicFinMindSymbols(repo: Repository): Promise<string[]> {

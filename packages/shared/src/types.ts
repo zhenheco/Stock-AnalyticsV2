@@ -1,4 +1,4 @@
-export type SourceKind = "ptt" | "rss" | "finmind" | "twse";
+export type SourceKind = "ptt" | "rss" | "finmind" | "twse" | "mops";
 export type SourceRunStatus = "ok" | "partial" | "failed";
 
 export interface SourceEvent {
@@ -21,6 +21,15 @@ export interface EventRecord {
   tags: string[];
   sentiment: number;
   reason: string;
+  confidenceScore?: number;
+}
+
+export interface ScoreBreakdown {
+  eventStrength: number;
+  sourceConfidence: number;
+  freshness: number;
+  crossSourceBoost: number;
+  watchlistBoost: number;
 }
 
 export interface Candidate {
@@ -35,12 +44,18 @@ export interface Candidate {
   sources: SourceKind[];
   tags: string[];
   reason: string;
+  scoreBreakdown?: ScoreBreakdown;
+  confidenceScore?: number;
 }
 
 export interface WatchlistEntry {
   symbol: string;
   name: string;
   addedAt: string;
+  note?: string;
+  tags?: string[];
+  alertThreshold?: number;
+  lastSeenEventAt?: string | null;
 }
 
 export type SecurityType = "stock" | "etf" | "etn" | "index" | "unknown";
@@ -119,4 +134,32 @@ export interface TwseNewsRow {
   Title?: string;
   Url?: string;
   Date?: string;
+}
+
+export interface MopsMaterialInfoRow {
+  companyId?: string;
+  companyName?: string;
+  title?: string;
+  url?: string;
+  date?: string;
+  time?: string;
+}
+
+export interface DailySnapshot {
+  id: string;
+  createdAt: string;
+  candidateCount: number;
+  topSymbols: string[];
+  scores?: Record<string, number>;
+  sourceStatusCounts: Record<SourceRunStatus, number>;
+  drift: {
+    newSymbols: string[];
+    droppedSymbols: string[];
+    scoreChanges: Array<{
+      symbol: string;
+      from: number;
+      to: number;
+      delta: number;
+    }>;
+  };
 }

@@ -141,7 +141,7 @@ export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAd
 }
 
 export interface ResearchEventGroup {
-  id: "social" | "news" | "market" | "revenue";
+  id: "social" | "news" | "official" | "market" | "revenue";
   label: string;
   events: EventRecord[];
 }
@@ -149,6 +149,7 @@ export interface ResearchEventGroup {
 const RESEARCH_GROUPS: Array<Omit<ResearchEventGroup, "events">> = [
   { id: "social", label: "社群討論" },
   { id: "news", label: "新聞時事" },
+  { id: "official", label: "官方重訊" },
   { id: "market", label: "價格/籌碼" },
   { id: "revenue", label: "營收基本面" }
 ];
@@ -193,6 +194,9 @@ function researchGroupId(event: EventRecord): ResearchEventGroup["id"] {
   }
   if (event.source === "rss") {
     return "news";
+  }
+  if (event.source === "twse" || event.source === "mops") {
+    return "official";
   }
   if (event.tags.includes("營收")) {
     return "revenue";

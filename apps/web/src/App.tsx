@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import type { Candidate, DataReadiness, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
-import { addWatchlistEntry, fetchCandidates, fetchDataReadiness, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "./api";
+import type { Candidate, DailySnapshot, DataReadiness, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import { addWatchlistEntry, fetchCandidates, fetchDataReadiness, fetchSnapshots, fetchSourceRuns, fetchStockResearch, fetchUniverse, fetchWatchlist, removeWatchlistEntry, triggerAdminIngest, triggerAdminScore } from "./api";
 import { readStoredAdminToken } from "./adminToken";
 import { AdminRefreshPanel } from "./components/AdminRefreshPanel";
 import { DataReadinessPanel } from "./components/DataReadinessPanel";
 import { RadarTable, type RadarFilters } from "./components/RadarTable";
 import { ResearchOnlyNotice } from "./components/ResearchOnlyNotice";
+import { SnapshotPanel } from "./components/SnapshotPanel";
 import { SourceHealth } from "./components/SourceHealth";
 import { StockDetail } from "./pages/StockDetail";
 import { Watchlist } from "./pages/Watchlist";
@@ -30,7 +31,7 @@ export function App() {
   return <RadarRoute />;
 }
 
-type DashboardData = { candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[]; readiness: DataReadiness };
+type DashboardData = { candidates: Candidate[]; updatedAt: string | null; runs: SourceRun[]; universeCount: number; watchlist: WatchlistEntry[]; readiness: DataReadiness; snapshots: DailySnapshot[] };
 
 function RadarRoute() {
   const [state, setState] = useState<LoadState<DashboardData>>({ status: "loading" });
@@ -118,6 +119,7 @@ function RadarRoute() {
             <ResearchOnlyNotice />
             <SourceHealth runs={runs} />
             <DataReadinessPanel readiness={state.data.readiness} />
+            <SnapshotPanel snapshots={state.data.snapshots} />
             <AdminRefreshPanel onRefresh={handleManualRefresh} onScore={handleManualScore} />
             <RadarTable
               candidates={candidates}
@@ -139,13 +141,14 @@ export function mergeWatchlistEntry(entries: WatchlistEntry[], entry: WatchlistE
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
-  const [candidateData, healthData, universeData, watchlistData, readiness] = await Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist(), fetchDataReadiness()]);
+  const [candidateData, healthData, universeData, watchlistData, readiness, snapshotData] = await Promise.all([fetchCandidates(), fetchSourceRuns(), fetchUniverse(), fetchWatchlist(), fetchDataReadiness(), fetchSnapshots()]);
   return {
     ...candidateData,
     runs: healthData.runs,
     universeCount: universeData.count,
     watchlist: watchlistData.watchlist,
-    readiness
+    readiness,
+    snapshots: snapshotData.snapshots
   };
 }
 
@@ -214,7 +217,7 @@ function WatchlistRoute() {
       .catch((error: unknown) => setState({ status: "error", message: error instanceof Error ? error.message : "資料讀取失敗" }));
   }, []);
 
-  async function handleAdd(input: { symbol: string; name?: string; adminToken: string }) {
+  async function handleAdd(input: { symbol: string; name?: string; note?: string; tags?: string[]; alertThreshold?: number; adminToken: string }) {
     const entry = await addWatchlistEntry(input);
     setState((current) => {
       if (current.status !== "ready") {

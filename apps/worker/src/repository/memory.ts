@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, DailySnapshot, EventRecord, SourceRun, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 export class MemoryRepository implements Repository {
@@ -7,6 +7,7 @@ export class MemoryRepository implements Repository {
   private universe: UniverseStock[] = [];
   private sourceRuns: SourceRun[] = [];
   private watchlist: WatchlistEntry[] = [];
+  private snapshots: DailySnapshot[] = [];
 
   async listCandidates(): Promise<Candidate[]> {
     return [...this.candidates];
@@ -86,5 +87,17 @@ export class MemoryRepository implements Repository {
     const before = this.watchlist.length;
     this.watchlist = this.watchlist.filter((item) => item.symbol !== symbol);
     return this.watchlist.length < before;
+  }
+
+  async listSnapshots(limit = 14): Promise<DailySnapshot[]> {
+    return [...this.snapshots]
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, limit);
+  }
+
+  async saveSnapshot(snapshot: DailySnapshot): Promise<void> {
+    const byId = new Map(this.snapshots.map((item) => [item.id, item]));
+    byId.set(snapshot.id, snapshot);
+    this.snapshots = [...byId.values()];
   }
 }

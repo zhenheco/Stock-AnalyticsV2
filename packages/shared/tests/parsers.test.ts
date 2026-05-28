@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFinMindRows, normalizeFinMindStockInfoRows, normalizeTwseNewsRows, parsePttTitles, parseRssItems } from "../src/parsers";
+import { normalizeFinMindRows, normalizeFinMindStockInfoRows, normalizeMopsMaterialInfoRows, normalizeTwseNewsRows, parsePttTitles, parseRssItems } from "../src/parsers";
 
 describe("parsePttTitles", () => {
   it("extracts title, url, push count, published time, and mentioned symbols", () => {
@@ -300,5 +300,29 @@ describe("normalizeFinMindRows", () => {
     expect(normalizeFinMindRows([
       { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "MarginPurchaseCashRepayment", buy: 0, sell: 0 }
     ], "2026-05-27T05:00:00.000Z")).toEqual([]);
+  });
+});
+
+describe("normalizeMopsMaterialInfoRows", () => {
+  it("normalizes MOPS material information rows into official evidence events", () => {
+    expect(normalizeMopsMaterialInfoRows([
+      {
+        companyId: "2330",
+        companyName: "台積電",
+        title: "代子公司公告取得機器設備",
+        url: "https://mops.twse.com.tw/mops/web/t05sr01_1",
+        date: "115/05/27",
+        time: "18:30:00"
+      }
+    ])).toEqual([
+      {
+        source: "mops",
+        title: "2330 台積電 代子公司公告取得機器設備",
+        url: "https://mops.twse.com.tw/mops/web/t05sr01_1",
+        publishedAt: "2026-05-27T18:30:00.000+08:00",
+        engagement: 0,
+        symbols: ["2330"]
+      }
+    ]);
   });
 });

@@ -69,6 +69,9 @@ export function sourceRunAdvice(run: SourceRun): string | null {
   if (run.source === "ptt" && run.status === "failed") {
     return "PTT 可能暫時限流或連線失敗，下一次排程會自動重試。";
   }
+  if (run.source === "mops" && run.status !== "ok") {
+    return "MOPS 官方重訊暫時無法同步，TWSE 官方新聞仍會作為備援官方來源。";
+  }
   return null;
 }
 

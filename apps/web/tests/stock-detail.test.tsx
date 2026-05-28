@@ -97,10 +97,11 @@ describe("StockDetail", () => {
     expect(html).toContain("AI");
   });
 
-  it("groups stock evidence into social, news, market, and revenue lanes", () => {
+  it("groups stock evidence into social, news, official, market, and revenue lanes", () => {
     const groups = groupResearchEvents([
       event({ id: "ptt:1", source: "ptt", tags: ["討論熱度"] }),
       event({ id: "rss:1", source: "rss", tags: ["AI"] }),
+      event({ id: "mops:1", source: "mops", tags: ["重大訊息"] }),
       event({ id: "finmind:price", source: "finmind", tags: ["價格量能"] }),
       event({ id: "finmind:revenue", source: "finmind", tags: ["營收"] })
     ]);
@@ -108,6 +109,7 @@ describe("StockDetail", () => {
     expect(groups.map((group) => [group.id, group.events.length])).toEqual([
       ["social", 1],
       ["news", 1],
+      ["official", 1],
       ["market", 1],
       ["revenue", 1]
     ]);
@@ -119,6 +121,7 @@ describe("StockDetail", () => {
       events={[
         event({ id: "ptt:1", source: "ptt", title: "台積電討論熱度升溫", tags: ["討論熱度"] }),
         event({ id: "rss:1", source: "rss", title: "台積電 AI 新聞", tags: ["AI"] }),
+        event({ id: "mops:1", source: "mops", title: "台積電重大訊息", tags: ["重大訊息"] }),
         event({ id: "finmind:price", source: "finmind", title: "2330 close 1200 volume 5000", tags: ["價格量能"] }),
         event({ id: "finmind:revenue", source: "finmind", title: "2330 2026/4 月營收 4107.3 億元", tags: ["營收"] })
       ]}
@@ -126,6 +129,7 @@ describe("StockDetail", () => {
 
     expect(html).toContain("社群討論");
     expect(html).toContain("新聞時事");
+    expect(html).toContain("官方重訊");
     expect(html).toContain("價格/籌碼");
     expect(html).toContain("營收基本面");
     expect(html).toContain("台積電討論熱度升溫");

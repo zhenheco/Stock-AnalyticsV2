@@ -125,6 +125,7 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                       <span style={{ width: `${Math.min(100, candidate.score * 10)}%` }} />
                       <strong>{candidate.score.toFixed(1)}</strong>
                     </div>
+                    {candidate.confidenceScore !== undefined ? <small className="confidence-chip">{`信心 ${candidate.confidenceScore}`}</small> : null}
                   </td>
                   <td>
                     <div className="event-cell">
@@ -134,6 +135,15 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                         <span>{`${candidate.sourceCount} 來源`}</span>
                         <span>{`${candidate.eventCount} 事件`}</span>
                       </div>
+                      {candidate.scoreBreakdown ? (
+                        <div className="score-breakdown" aria-label={`${candidate.symbol} score breakdown`}>
+                          <span>{`事件強度 ${candidate.scoreBreakdown.eventStrength.toFixed(1)}`}</span>
+                          <span>{`來源可信 ${candidate.scoreBreakdown.sourceConfidence.toFixed(1)}`}</span>
+                          <span>{`新鮮度 ${candidate.scoreBreakdown.freshness.toFixed(1)}`}</span>
+                          <span>{`多源共振 ${candidate.scoreBreakdown.crossSourceBoost.toFixed(1)}`}</span>
+                          {candidate.scoreBreakdown.watchlistBoost > 0 ? <span>{`追蹤加權 ${candidate.scoreBreakdown.watchlistBoost.toFixed(1)}`}</span> : null}
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td>
@@ -189,7 +199,8 @@ const SOURCE_LABELS: Record<SourceKind, string> = {
   ptt: "PTT",
   rss: "RSS",
   finmind: "FinMind",
-  twse: "TWSE"
+  twse: "TWSE",
+  mops: "MOPS"
 };
 
 export function sourceMixSegments(candidate: Candidate): SourceMixSegment[] {

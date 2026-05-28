@@ -3,6 +3,7 @@ import {
   parsePttTitles,
   type FinMindRow,
   type FinMindStockInfoRow,
+  type MopsMaterialInfoRow,
   type SourceKind,
   type SourceRun,
   type TwseNewsRow
@@ -16,6 +17,7 @@ export interface SourceEnv {
   RSS_FEED_URLS?: string;
   RSS_FEED_URL?: string;
   TWSE_NEWS_URL?: string;
+  MOPS_MATERIAL_URL?: string;
   PTT_STOCK_URL?: string;
   PTT_STOCK_PAGES?: string;
 }
@@ -42,16 +44,18 @@ interface FinMindStockInfoResponse {
 
 const FINMIND_ENDPOINT = "https://api.finmindtrade.com/api/v4/data";
 const DEFAULT_TWSE_NEWS_URL = "https://openapi.twse.com.tw/v1/news/newsList";
+const DEFAULT_MOPS_MATERIAL_URL = "https://mops.twse.com.tw/mops/web/t05sr01_1";
 const DEFAULT_PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html";
 const DEFAULT_RSS_FEED_URL = "https://tw.stock.yahoo.com/rss?category=news";
 const DEFAULT_FETCH_ATTEMPTS = 2;
 
 export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<LiveSourceResult> {
   const fetcher = input.fetcher ?? fetch;
-  const [ptt, rss, twse, finmind] = await Promise.all([
+  const [ptt, rss, twse, mops, finmind] = await Promise.all([
     fetchPttSource(fetcher, input.env, input.now),
     fetchRssSources(fetcher, input.env, input.now),
     fetchTwseNewsSource(fetcher, input.env, input.now),
+    fetchMopsMaterialSource(fetcher, input.env, input.now),
     fetchFinMindSources(fetcher, input.env, input.now, input.finmindSymbols ?? [])
   ]);
 
@@ -60,10 +64,11 @@ export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<Li
       ...(ptt.body ? { pttHtml: ptt.body } : {}),
       ...(rss.body ? { rssXml: rss.body } : {}),
       ...(twse.rows.length > 0 ? { twseNewsRows: twse.rows } : {}),
+      ...(mops.rows.length > 0 ? { mopsMaterialRows: mops.rows } : {}),
       ...(finmind.rows.length > 0 ? { finmindRows: finmind.rows } : {}),
       ...(finmind.stockInfoRows.length > 0 ? { finmindStockInfoRows: finmind.stockInfoRows } : {})
     },
-    runs: [ptt.run, rss.run, twse.run, finmind.run]
+    runs: [ptt.run, rss.run, twse.run, mops.run, finmind.run]
   };
 }
 
@@ -154,6 +159,31 @@ async function fetchTwseNewsSource(fetcher: typeof fetch, env: SourceEnv, now: s
   return {
     rows,
     run: buildRun("twse", now, "ok", rows.length)
+  };
+}
+
+async function fetchMopsMaterialSource(fetcher: typeof fetch, env: SourceEnv, now: string): Promise<{ rows: MopsMaterialInfoRow[]; run: SourceRun }> {
+  const url = env.MOPS_MATERIAL_URL ?? DEFAULT_MOPS_MATERIAL_URL;
+  const response = await safeFetch(fetcher, url, {
+    headers: new Headers({
+      accept: "application/json,text/html",
+      "user-agent": "StockAnalyticsV2/0.1"
+    })
+  });
+  if (!response?.ok) {
+    return {
+      rows: [],
+      run: buildRun("mops", now, "failed", 0, response ? `HTTP ${response.status}` : "Fetch failed")
+    };
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const rows = contentType.includes("json")
+    ? parseMopsJson(await readJson<unknown>(response))
+    : parseMopsHtml(await response.text(), url);
+  return {
+    rows,
+    run: buildRun("mops", now, "ok", rows.length)
   };
 }
 
@@ -311,6 +341,44 @@ function isTwseNewsRow(value: unknown): value is TwseNewsRow {
   }
   const row = value as Record<string, unknown>;
   return typeof row.Title === "string" && typeof row.Url === "string" && typeof row.Date === "string";
+}
+
+function parseMopsJson(value: unknown): MopsMaterialInfoRow[] {
+  const rows = Array.isArray(value)
+    ? value
+    : Array.isArray((value as { data?: unknown })?.data)
+      ? (value as { data: unknown[] }).data
+      : [];
+  return rows.filter(isMopsMaterialRow);
+}
+
+function parseMopsHtml(html: string, baseUrl: string): MopsMaterialInfoRow[] {
+  return (html.match(/<tr[\s\S]*?<\/tr>/g) ?? []).flatMap((rowHtml) => {
+    const cells = (rowHtml.match(/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/g) ?? [])
+      .map((cell) => cell.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    const link = rowHtml.match(/href="([^"]+)"/)?.[1];
+    const companyId = cells.find((cell) => /^\d{4,6}[A-Z]?$/.test(cell));
+    const title = cells.find((cell) => cell.includes("公告") || cell.includes("重大") || cell.length > 12);
+    if (!companyId || !title) {
+      return [];
+    }
+    return [{
+      companyId,
+      companyName: cells[cells.indexOf(companyId) + 1],
+      title,
+      url: link ? new URL(link, baseUrl).toString() : baseUrl,
+      date: cells.find((cell) => /^\d{3}\/?\d{2}\/?\d{2}$/.test(cell.replace(/\s/g, ""))),
+      time: cells.find((cell) => /^\d{1,2}:\d{2}/.test(cell))
+    }];
+  });
+}
+
+function isMopsMaterialRow(value: unknown): value is MopsMaterialInfoRow {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const row = value as Record<string, unknown>;
+  return typeof row.companyId === "string" && typeof row.title === "string";
 }
 
 function parseSymbols(value: string | undefined): string[] {

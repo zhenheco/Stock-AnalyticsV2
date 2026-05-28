@@ -17,7 +17,7 @@ export interface ProductionSmokeInput {
   };
   sourceRuns: {
     runs: Array<{
-      source: "ptt" | "rss" | "twse" | "finmind";
+      source: "ptt" | "rss" | "twse" | "mops" | "finmind";
       status: "ok" | "partial" | "failed";
       startedAt?: string;
       itemCount: number;
@@ -28,7 +28,7 @@ export interface ProductionSmokeInput {
     candidates: Array<{
       symbol: string;
       name: string;
-      sourceEventCounts?: Partial<Record<"finmind" | "rss" | "ptt" | "twse", number>>;
+      sourceEventCounts?: Partial<Record<"finmind" | "rss" | "ptt" | "twse" | "mops", number>>;
     }>;
   };
 }

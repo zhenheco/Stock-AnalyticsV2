@@ -65,6 +65,27 @@ describe("RadarTable", () => {
     expect(html).toContain("TWSE 1");
   });
 
+  it("renders explainable score breakdown and confidence for candidates", () => {
+    const html = renderToString(<RadarTable candidates={[
+      candidate({
+        symbol: "2330",
+        confidenceScore: 82,
+        scoreBreakdown: {
+          eventStrength: 3.2,
+          sourceConfidence: 2.4,
+          freshness: 1.5,
+          crossSourceBoost: 1.2,
+          watchlistBoost: 0.5
+        }
+      })
+    ]} />);
+
+    expect(html).toContain("信心 82");
+    expect(html).toContain("事件強度 3.2");
+    expect(html).toContain("來源可信 2.4");
+    expect(html).toContain("多源共振 1.2");
+  });
+
   it("builds source mix segments from candidate counts", () => {
     expect(sourceMixSegments(candidate({
       eventCount: 6,

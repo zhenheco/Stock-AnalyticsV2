@@ -2,6 +2,7 @@ import {
   extractMentionedSymbols,
   normalizeFinMindRows,
   normalizeFinMindStockInfoRows,
+  normalizeMopsMaterialInfoRows,
   normalizeTwseNewsRows,
   parsePttTitles,
   parseRssItems,
@@ -9,6 +10,7 @@ import {
   type EventRecord,
   type FinMindRow,
   type FinMindStockInfoRow,
+  type MopsMaterialInfoRow,
   type SourceEvent,
   type TwseNewsRow
 } from "@stock-analytics/shared";
@@ -19,6 +21,7 @@ export interface IngestionSources {
   pttHtml?: string;
   rssXml?: string;
   twseNewsRows?: TwseNewsRow[];
+  mopsMaterialRows?: MopsMaterialInfoRow[];
   finmindRows?: FinMindRow[];
   finmindStockInfoRows?: FinMindStockInfoRow[];
 }
@@ -47,6 +50,7 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
     ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases, validSymbols) : []),
     ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases, validSymbols, false) : []),
     ...(input.sources.twseNewsRows ? normalizeTwseNewsRows(input.sources.twseNewsRows, aliases, validSymbols) : []),
+    ...(input.sources.mopsMaterialRows ? normalizeMopsMaterialInfoRows(input.sources.mopsMaterialRows) : []),
     ...normalizeFinMindRows(finmindRows, input.now)
   ];
   const relevantSymbols = collectRelevantSymbols(sourceEvents, finmindRows);
@@ -97,6 +101,8 @@ export async function recomputeCandidates(repo: Repository, names: Record<string
   const candidates = scoreCandidates(events, {
     ...Object.fromEntries(universe.map((stock) => [stock.symbol, stock.name])),
     ...names
+  }, {
+    watchlistSymbols: new Set((await repo.listWatchlist()).map((entry) => entry.symbol))
   });
   await repo.saveCandidates(candidates);
 }
@@ -187,8 +193,10 @@ function classifyEvent(title: string, source: SourceEvent["source"]): { sentimen
   const isAnnouncement = title.includes("【公告】") || title.match(/股東會|股東常會|董事會|解除董事競業|自結|重要決議|財務報告/);
   const isIndustryCatalyst = title.match(/商機|機器人|供應鏈|訂單|需求|報價|漲停|大漲|攻/);
   const isChipSignal = title.match(/買超|賣超|融資|融券|外資|投信|自營商/);
+  const isMaterialInfo = source === "mops";
   const tags = [
     isAnnouncement ? "公告" : "",
+    isMaterialInfo ? "重大訊息" : "",
     title.includes("AI") ? "AI" : "",
     isIndustryCatalyst ? "產業題材" : "",
     title.includes("封裝") ? "先進封裝" : "",
@@ -196,13 +204,13 @@ function classifyEvent(title: string, source: SourceEvent["source"]): { sentimen
     isChipSignal ? "籌碼" : "",
     source === "ptt" ? "討論熱度" : "",
     source === "finmind" ? "價格量能" : "",
-    source === "twse" ? "官方訊息" : ""
+    source === "twse" || source === "mops" ? "官方訊息" : ""
   ].filter(Boolean);
 
   return {
-    sentiment: isAnnouncement ? 2 : title.match(/升溫|增加|爆量|成長|強|商機|大漲|漲停/) ? 4 : 3,
+    sentiment: isAnnouncement && !isMaterialInfo ? 2 : title.match(/升溫|增加|爆量|成長|強|商機|大漲|漲停/) ? 4 : 3,
     tags: tags.slice(0, 3),
-    reason: isAnnouncement ? "公告事件，可信但催化程度較低" : source === "twse" ? "TWSE 官方事件訊號命中" : source === "finmind" && isChipSignal ? "FinMind 籌碼訊號命中" : `${source} 事件訊號命中`
+    reason: isAnnouncement && !isMaterialInfo ? "公告事件，可信但催化程度較低" : source === "mops" ? "MOPS 官方重大訊息命中" : source === "twse" ? "TWSE 官方事件訊號命中" : source === "finmind" && isChipSignal ? "FinMind 籌碼訊號命中" : `${source} 事件訊號命中`
   };
 }
 

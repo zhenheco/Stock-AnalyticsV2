@@ -14,6 +14,9 @@ describe("scheduled worker", () => {
     });
 
     expect(await repo.listCandidates()).toHaveLength(1);
+    expect(await repo.listSnapshots()).toEqual([
+      expect.objectContaining({ candidateCount: 1, topSymbols: ["2330"] })
+    ]);
     expect(await repo.listSourceRuns()).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "rss", status: "ok", itemCount: 1 })
     ]));

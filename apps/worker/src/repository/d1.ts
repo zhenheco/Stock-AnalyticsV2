@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, SourceKind, SourceRun, SourceRunStatus, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, DailySnapshot, EventRecord, ScoreBreakdown, SourceKind, SourceRun, SourceRunStatus, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 interface D1Database {
@@ -28,8 +28,8 @@ export class D1Repository implements Repository {
 
     await batchStatements(this.db, candidates.map((candidate) => this.db.prepare(`
       INSERT OR REPLACE INTO candidates
-        (symbol, name, score, event_count, source_count, source_counts_json, latest_title, latest_at, sources_json, tags_json, reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (symbol, name, score, event_count, source_count, source_counts_json, latest_title, latest_at, sources_json, tags_json, reason, score_breakdown_json, confidence_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       candidate.symbol,
       candidate.name,
@@ -41,7 +41,9 @@ export class D1Repository implements Repository {
       candidate.latestAt,
       JSON.stringify(candidate.sources),
       JSON.stringify(candidate.tags),
-      candidate.reason
+      candidate.reason,
+      JSON.stringify(candidate.scoreBreakdown ?? {}),
+      candidate.confidenceScore ?? 0
     )));
   }
 
@@ -60,8 +62,8 @@ export class D1Repository implements Repository {
   async saveEvents(events: EventRecord[]): Promise<void> {
     await batchStatements(this.db, events.map((event) => this.db.prepare(`
       INSERT OR REPLACE INTO events
-        (id, source, symbol, title, url, published_at, engagement, tags_json, sentiment, reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, source, symbol, title, url, published_at, engagement, tags_json, sentiment, reason, confidence_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       event.id,
       event.source,
@@ -72,7 +74,8 @@ export class D1Repository implements Repository {
       event.engagement,
       JSON.stringify(event.tags),
       event.sentiment,
-      event.reason
+      event.reason,
+      event.confidenceScore ?? 50
     )));
   }
 
@@ -143,12 +146,12 @@ export class D1Repository implements Repository {
   }
 
   async listWatchlist(): Promise<WatchlistEntry[]> {
-    const rows = await this.db.prepare("SELECT symbol, name, added_at FROM watchlist ORDER BY symbol").all<WatchlistRow>();
+    const rows = await this.db.prepare("SELECT symbol, name, added_at, note, tags_json, alert_threshold, last_seen_event_at FROM watchlist ORDER BY symbol").all<WatchlistRow>();
     return (rows.results ?? []).map(rowToWatchlistEntry);
   }
 
   async addWatchlist(entry: Omit<WatchlistEntry, "addedAt">): Promise<WatchlistEntry> {
-    const existing = await this.db.prepare("SELECT symbol, name, added_at FROM watchlist WHERE symbol = ?")
+    const existing = await this.db.prepare("SELECT symbol, name, added_at, note, tags_json, alert_threshold, last_seen_event_at FROM watchlist WHERE symbol = ?")
       .bind(entry.symbol)
       .all<WatchlistRow>();
     if (existing.results?.[0]) {
@@ -156,8 +159,8 @@ export class D1Repository implements Repository {
     }
 
     const addedAt = new Date().toISOString();
-    await this.db.prepare("INSERT OR IGNORE INTO watchlist (symbol, name, added_at) VALUES (?, ?, ?)")
-      .bind(entry.symbol, entry.name, addedAt)
+    await this.db.prepare("INSERT OR IGNORE INTO watchlist (symbol, name, added_at, note, tags_json, alert_threshold, last_seen_event_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(entry.symbol, entry.name, addedAt, entry.note ?? "", JSON.stringify(entry.tags ?? []), entry.alertThreshold ?? null, entry.lastSeenEventAt ?? null)
       .run();
     return { ...entry, addedAt };
   }
@@ -171,10 +174,42 @@ export class D1Repository implements Repository {
       .run();
     return Boolean(existing.results?.length);
   }
+
+  async listSnapshots(limit = 14): Promise<DailySnapshot[]> {
+    const rows = await this.db.prepare("SELECT * FROM daily_snapshots ORDER BY created_at DESC LIMIT ?")
+      .bind(limit)
+      .all<DailySnapshotRow>();
+    return (rows.results ?? []).map(rowToDailySnapshot);
+  }
+
+  async saveSnapshot(snapshot: DailySnapshot): Promise<void> {
+    await this.db.prepare(`
+      INSERT OR REPLACE INTO daily_snapshots
+        (id, created_at, candidate_count, top_symbols_json, scores_json, source_status_counts_json, drift_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      snapshot.id,
+      snapshot.createdAt,
+      snapshot.candidateCount,
+      JSON.stringify(snapshot.topSymbols),
+      JSON.stringify(snapshot.scores ?? {}),
+      JSON.stringify(snapshot.sourceStatusCounts),
+      JSON.stringify(snapshot.drift)
+    ).run();
+  }
 }
 
 function rowToWatchlistEntry(row: WatchlistRow): WatchlistEntry {
-  return { symbol: row.symbol, name: row.name, addedAt: row.added_at };
+  const tags = parseJsonArray(row.tags_json);
+  return {
+    symbol: row.symbol,
+    name: row.name,
+    addedAt: row.added_at,
+    ...(row.note ? { note: row.note } : {}),
+    ...(tags.length > 0 ? { tags } : {}),
+    ...(typeof row.alert_threshold === "number" ? { alertThreshold: row.alert_threshold } : {}),
+    ...(row.last_seen_event_at ? { lastSeenEventAt: row.last_seen_event_at } : {})
+  };
 }
 
 interface CandidateRow {
@@ -189,6 +224,8 @@ interface CandidateRow {
   sources_json: string;
   tags_json: string;
   reason: string;
+  score_breakdown_json?: string;
+  confidence_score?: number;
 }
 
 interface EventRow {
@@ -202,12 +239,17 @@ interface EventRow {
   tags_json: string;
   sentiment: number;
   reason: string;
+  confidence_score?: number;
 }
 
 interface WatchlistRow {
   symbol: string;
   name: string;
   added_at: string;
+  note?: string | null;
+  tags_json?: string | null;
+  alert_threshold?: number | null;
+  last_seen_event_at?: string | null;
 }
 
 interface SourceRunRow {
@@ -229,6 +271,16 @@ interface UniverseRow {
   updated_at: string;
 }
 
+interface DailySnapshotRow {
+  id: string;
+  created_at: string;
+  candidate_count: number;
+  top_symbols_json: string;
+  scores_json?: string;
+  source_status_counts_json: string;
+  drift_json: string;
+}
+
 function rowToCandidate(row: CandidateRow): Candidate {
   return {
     symbol: row.symbol,
@@ -241,7 +293,9 @@ function rowToCandidate(row: CandidateRow): Candidate {
     latestAt: row.latest_at,
     sources: JSON.parse(row.sources_json) as SourceKind[],
     tags: JSON.parse(row.tags_json) as string[],
-    reason: row.reason
+    reason: row.reason,
+    scoreBreakdown: parseScoreBreakdown(row.score_breakdown_json),
+    confidenceScore: row.confidence_score ?? undefined
   };
 }
 
@@ -277,7 +331,20 @@ function rowToEvent(row: EventRow): EventRecord {
     engagement: row.engagement,
     tags: JSON.parse(row.tags_json) as string[],
     sentiment: row.sentiment,
-    reason: row.reason
+    reason: row.reason,
+    confidenceScore: row.confidence_score ?? undefined
+  };
+}
+
+function rowToDailySnapshot(row: DailySnapshotRow): DailySnapshot {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    candidateCount: row.candidate_count,
+    topSymbols: parseJsonArray(row.top_symbols_json),
+    scores: parseNumberRecord(row.scores_json),
+    sourceStatusCounts: parseJsonObject(row.source_status_counts_json) as DailySnapshot["sourceStatusCounts"],
+    drift: parseJsonObject(row.drift_json) as DailySnapshot["drift"]
   };
 }
 
@@ -296,4 +363,38 @@ async function batchStatements(db: D1Database, statements: D1PreparedStatement[]
   for (let index = 0; index < statements.length; index += size) {
     await db.batch(statements.slice(index, index + size));
   }
+}
+
+function parseJsonArray(value: string | null | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonObject(value: string | null | undefined): Record<string, unknown> {
+  if (!value) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseScoreBreakdown(value: string | null | undefined): ScoreBreakdown | undefined {
+  const parsed = parseJsonObject(value);
+  return Object.keys(parsed).length > 0 ? parsed as unknown as ScoreBreakdown : undefined;
+}
+
+function parseNumberRecord(value: string | null | undefined): Record<string, number> {
+  const parsed = parseJsonObject(value);
+  return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, number] => typeof entry[1] === "number"));
 }
