@@ -9,6 +9,7 @@ import { ResearchOnlyNotice } from "./components/ResearchOnlyNotice";
 import { SnapshotPanel } from "./components/SnapshotPanel";
 import { SourceHealth } from "./components/SourceHealth";
 import { WatchlistAlerts } from "./components/WatchlistAlerts";
+import { FriendTest } from "./pages/FriendTest";
 import { StockDetail } from "./pages/StockDetail";
 import { Watchlist } from "./pages/Watchlist";
 
@@ -27,6 +28,10 @@ export function App() {
 
   if (path === "/watchlist") {
     return <WatchlistRoute />;
+  }
+
+  if (path === "/friend-test") {
+    return <FriendTest />;
   }
 
   return <RadarRoute />;
@@ -89,6 +94,7 @@ function RadarRoute() {
       <header className="hero-band">
         <nav>
           <a href="/">雷達</a>
+          <a href="/friend-test">朋友測試</a>
           <a href="/watchlist">追蹤清單</a>
         </nav>
         <div className="hero-grid">
