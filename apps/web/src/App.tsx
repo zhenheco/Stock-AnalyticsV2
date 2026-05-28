@@ -8,6 +8,7 @@ import { RadarTable, type RadarFilters } from "./components/RadarTable";
 import { ResearchOnlyNotice } from "./components/ResearchOnlyNotice";
 import { SnapshotPanel } from "./components/SnapshotPanel";
 import { SourceHealth } from "./components/SourceHealth";
+import { WatchlistAlerts } from "./components/WatchlistAlerts";
 import { StockDetail } from "./pages/StockDetail";
 import { Watchlist } from "./pages/Watchlist";
 
@@ -119,6 +120,7 @@ function RadarRoute() {
             <ResearchOnlyNotice />
             <SourceHealth runs={runs} />
             <DataReadinessPanel readiness={state.data.readiness} />
+            <WatchlistAlerts entries={state.data.watchlist} candidates={candidates} />
             <SnapshotPanel snapshots={state.data.snapshots} />
             <AdminRefreshPanel onRefresh={handleManualRefresh} onScore={handleManualScore} />
             <RadarTable

@@ -433,11 +433,76 @@ h2 {
   margin-bottom: 22px;
 }
 
-.snapshot-panel {
+.snapshot-panel,
+.watchlist-alerts {
   border: 1px solid var(--line);
   border-radius: 8px;
   margin-bottom: 22px;
   padding: 18px;
+}
+
+.watchlist-alerts > .section-title > span {
+  color: var(--muted);
+}
+
+.watchlist-alert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.watchlist-alert-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 4px solid var(--green);
+  display: grid;
+  gap: 10px;
+  min-height: 160px;
+  padding: 14px;
+}
+
+.watchlist-alert-card header {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.watchlist-alert-card header a {
+  color: inherit;
+  display: grid;
+  gap: 3px;
+  text-decoration: none;
+}
+
+.watchlist-alert-card header strong {
+  color: #fff4cf;
+  font-size: 1.25rem;
+}
+
+.watchlist-alert-card header span,
+.watchlist-alert-card time,
+.watchlist-alert-card small {
+  color: var(--muted);
+}
+
+.watchlist-alert-card p {
+  color: #f1efe4;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.alert-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alert-badges span {
+  border: 1px solid rgba(102, 209, 143, 0.42);
+  border-radius: 999px;
+  color: #d9ffe7;
+  font-size: 0.78rem;
+  padding: 4px 8px;
 }
 
 .snapshot-grid {
@@ -1002,6 +1067,7 @@ h2 {
   .chart-band,
   .summary-grid,
   .lane-grid,
+  .watchlist-alert-grid,
   .snapshot-grid,
   .readiness-summary {
     grid-template-columns: 1fr;

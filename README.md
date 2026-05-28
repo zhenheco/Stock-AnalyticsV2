@@ -71,6 +71,7 @@ Scoring favors research catalysts such as AI, industry demand, revenue, and pric
 
 - Radar page shows candidate stocks and source health.
 - Data readiness panel summarizes candidate, universe, social/news, and FinMind price/chip/revenue connection state.
+- Watchlist alert panel surfaces tracked symbols with new events or scores that cross their configured threshold.
 - Daily drift panel shows new symbols, dropped symbols, score changes, and source status counts from snapshots.
 - Stock detail page shows event evidence, watchlist controls, and links out to TradingView instead of storing full historical price data.
 - Watchlist page includes a personal add form with notes, tags, and score alert threshold. The admin token is sent as `x-admin-token` and cached in browser local storage for convenience.
