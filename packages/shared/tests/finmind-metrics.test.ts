@@ -194,4 +194,34 @@ describe("computeFinMindMetrics", () => {
 
     expect(metrics.revenueMoMPct).toBeUndefined();
   });
+
+  it("marks isRecentHigh true when latest revenue is at least the max of prior months", () => {
+    const rows = [
+      revenueRow(2026, 3, 100),
+      revenueRow(2026, 4, 120),
+      revenueRow(2026, 5, 150)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.isRecentHigh).toBe(true);
+  });
+
+  it("marks isRecentHigh false when a prior month was higher", () => {
+    const rows = [
+      revenueRow(2026, 3, 200),
+      revenueRow(2026, 4, 120),
+      revenueRow(2026, 5, 150)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.isRecentHigh).toBe(false);
+  });
+
+  it("returns undefined isRecentHigh when there is no prior revenue month", () => {
+    const metrics = computeFinMindMetrics([revenueRow(2026, 5, 150)], "stock");
+
+    expect(metrics.isRecentHigh).toBeUndefined();
+  });
 });

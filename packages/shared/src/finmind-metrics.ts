@@ -6,6 +6,7 @@ const LIMIT_THRESHOLD_PCT = 9.5;
 const MAX_TURNOVER_WINDOW = 20;
 const LIQUIDITY_HIGH_TWD = 1e8;
 const LIQUIDITY_MID_TWD = 1e7;
+const MAX_RECENT_REVENUE_WINDOW = 3;
 
 export function computeFinMindMetrics(rows: FinMindRow[], securityType: SecurityType): FinMindMetrics {
   const priceRows = sortedPriceRows(rows);
@@ -17,6 +18,7 @@ export function computeFinMindMetrics(rows: FinMindRow[], securityType: Security
   const revenueRows = sortedRevenueRows(rows);
   const revenueYoYPct = computeRevenueYoYPct(revenueRows);
   const revenueMoMPct = computeRevenueMoMPct(revenueRows);
+  const isRecentHigh = computeIsRecentHigh(revenueRows);
 
   return {
     ...(priceChangePct === undefined ? {} : { priceChangePct }),
@@ -25,7 +27,8 @@ export function computeFinMindMetrics(rows: FinMindRow[], securityType: Security
     ...(avgDailyTurnoverTwd === undefined ? {} : { avgDailyTurnoverTwd }),
     ...(liquidityTier === undefined ? {} : { liquidityTier }),
     ...(revenueYoYPct === undefined ? {} : { revenueYoYPct }),
-    ...(revenueMoMPct === undefined ? {} : { revenueMoMPct })
+    ...(revenueMoMPct === undefined ? {} : { revenueMoMPct }),
+    ...(isRecentHigh === undefined ? {} : { isRecentHigh })
   };
 }
 
@@ -163,6 +166,26 @@ function computeRevenueMoMPct(revenueRows: FinMindRow[]): number | undefined {
     return undefined;
   }
   return round2(((latestRevenue - prevRevenue) / prevRevenue) * 100);
+}
+
+function computeIsRecentHigh(revenueRows: FinMindRow[]): boolean | undefined {
+  if (revenueRows.length < 2) {
+    return undefined;
+  }
+  const latest = revenueRows[revenueRows.length - 1];
+  const latestRevenue = latest?.revenue;
+  if (!finiteNumber(latestRevenue)) {
+    return undefined;
+  }
+  const prior = revenueRows
+    .slice(0, revenueRows.length - 1)
+    .slice(-MAX_RECENT_REVENUE_WINDOW)
+    .map((row) => row.revenue)
+    .filter(finiteNumber);
+  if (prior.length === 0) {
+    return undefined;
+  }
+  return latestRevenue >= Math.max(...prior);
 }
 
 function mean(values: number[]): number {
