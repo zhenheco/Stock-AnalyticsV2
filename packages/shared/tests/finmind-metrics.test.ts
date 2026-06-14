@@ -224,4 +224,40 @@ describe("computeFinMindMetrics", () => {
 
     expect(metrics.isRecentHigh).toBeUndefined();
   });
+
+  it("combines price and revenue rows for one symbol into a single metrics object", () => {
+    const rows: FinMindRow[] = [
+      priceRow("2026-06-06", 100, 100, 2e8),
+      priceRow("2026-06-07", 100, 100, 2e8),
+      priceRow("2026-06-08", 100, 100, 2e8),
+      priceRow("2026-06-09", 100, 100, 2e8),
+      priceRow("2026-06-10", 100, 100, 2e8),
+      priceRow("2026-06-13", 110, 300, 4e8),
+      revenueRow(2025, 5, 100),
+      revenueRow(2026, 4, 120),
+      revenueRow(2026, 5, 140)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics).toMatchObject({
+      priceChangePct: 10,
+      volumeRatio: 3,
+      limitFlag: "limit_up",
+      liquidityTier: "充足",
+      revenueYoYPct: 40,
+      revenueMoMPct: expect.closeTo(16.67, 2),
+      isRecentHigh: true
+    });
+    expect(metrics.avgDailyTurnoverTwd).toBeGreaterThan(0);
+  });
+
+  it("does not mutate the input rows", () => {
+    const rows = [priceRow("2026-06-13", 100, 100), priceRow("2026-06-12", 100, 100)];
+    const snapshot = JSON.stringify(rows);
+
+    computeFinMindMetrics(rows, "stock");
+
+    expect(JSON.stringify(rows)).toBe(snapshot);
+  });
 });
