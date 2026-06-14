@@ -399,7 +399,13 @@ function parseJsonObject(value: string | null | undefined): Record<string, unkno
 
 function parseScoreBreakdown(value: string | null | undefined): ScoreBreakdown | undefined {
   const parsed = parseJsonObject(value);
-  return Object.keys(parsed).length > 0 ? parsed as unknown as ScoreBreakdown : undefined;
+  if (Object.keys(parsed).length === 0) {
+    return undefined;
+  }
+  // Backfill derivedSignal for legacy rows written before the field existed, so the
+  // non-optional ScoreBreakdown contract holds at the repo boundary and consumers (UI) stay safe.
+  const breakdown = parsed as unknown as ScoreBreakdown;
+  return { ...breakdown, derivedSignal: typeof breakdown.derivedSignal === "number" ? breakdown.derivedSignal : 0 };
 }
 
 function parseFinMindMetrics(value: string | null | undefined): FinMindMetrics | undefined {

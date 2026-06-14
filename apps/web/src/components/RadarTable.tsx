@@ -149,7 +149,7 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                           <span>{`來源可信 ${candidate.scoreBreakdown.sourceConfidence.toFixed(1)}`}</span>
                           <span>{`新鮮度 ${candidate.scoreBreakdown.freshness.toFixed(1)}`}</span>
                           <span>{`多源共振 ${candidate.scoreBreakdown.crossSourceBoost.toFixed(1)}`}</span>
-                          <span>{`衍生訊號 ${candidate.scoreBreakdown.derivedSignal.toFixed(1)}`}</span>
+                          {typeof candidate.scoreBreakdown.derivedSignal === "number" ? <span>{`衍生訊號 ${candidate.scoreBreakdown.derivedSignal.toFixed(1)}`}</span> : null}
                           {candidate.scoreBreakdown.watchlistBoost > 0 ? <span>{`追蹤加權 ${candidate.scoreBreakdown.watchlistBoost.toFixed(1)}`}</span> : null}
                         </div>
                       ) : null}

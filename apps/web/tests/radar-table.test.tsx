@@ -88,6 +88,23 @@ describe("RadarTable", () => {
     expect(html).toContain("衍生訊號 4.3");
   });
 
+  it("does not crash on a legacy score breakdown missing derivedSignal", () => {
+    // Legacy candidates persisted before derivedSignal existed: scoreBreakdown present but field absent.
+    const legacyBreakdown = {
+      eventStrength: 3.2,
+      sourceConfidence: 2.4,
+      freshness: 1.5,
+      crossSourceBoost: 1.2,
+      watchlistBoost: 0
+    } as Candidate["scoreBreakdown"];
+    const html = renderToString(<RadarTable candidates={[
+      candidate({ symbol: "2330", scoreBreakdown: legacyBreakdown })
+    ]} />);
+
+    expect(html).toContain("事件強度 3.2");
+    expect(html).not.toContain("衍生訊號");
+  });
+
   it("builds source mix segments from candidate counts", () => {
     expect(sourceMixSegments(candidate({
       eventCount: 6,
