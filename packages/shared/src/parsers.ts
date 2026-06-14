@@ -1,4 +1,5 @@
 import { extractMentionedSymbols } from "./entity";
+import { computeFinMindMetrics } from "./finmind-metrics";
 import type { FinMindMetrics, FinMindRow, FinMindStockInfoRow, MopsMaterialInfoRow, SecurityType, SourceEvent, TwseNewsRow, UniverseStock } from "./types";
 
 export function parsePttTitles(
@@ -118,76 +119,150 @@ export function normalizeFinMindRows(
   now: string,
   securityTypes: ReadonlyMap<string, SecurityType> = new Map()
 ): SourceEvent[] {
-  void securityTypes;
-  return rows.flatMap((row) => {
+  const valid = rows.filter((row) => /^\d{4,6}[A-Z]?$/.test(normalizeSymbol(row.stock_id)));
+  const chipRows = valid.filter((row) => isMonthlyRevenueRow(row) === false && (isMarginRow(row) || isInstitutionalRow(row)));
+  const revenueRows = valid.filter(isMonthlyRevenueRow);
+  const priceRows = valid.filter((row) => !isMonthlyRevenueRow(row) && !isMarginRow(row) && !isInstitutionalRow(row) && (finiteNumber(row.close) || finiteNumber(row.Trading_Volume)));
+
+  return [
+    ...chipRows.flatMap((row) => normalizeChipRow(row, now)),
+    ...groupBySymbol(priceRows).flatMap(([symbol, group]) => priceSummaryEvent(symbol, group, securityTypes, now)),
+    ...groupBySymbol(revenueRows).flatMap(([symbol, group]) => revenueSummaryEvent(symbol, group, now))
+  ];
+}
+
+function groupBySymbol(rows: FinMindRow[]): Array<[string, FinMindRow[]]> {
+  return rows.reduce<Array<[string, FinMindRow[]]>>((groups, row) => {
     const symbol = normalizeSymbol(row.stock_id);
-    if (!/^\d{4,6}[A-Z]?$/.test(symbol)) {
-      return [];
+    const existing = groups.find(([groupSymbol]) => groupSymbol === symbol);
+    if (!existing) {
+      return [...groups, [symbol, [row]]];
     }
-    const name = row.stock_name ?? symbol;
+    return groups.map(([groupSymbol, groupRows]) => groupSymbol === symbol
+      ? [groupSymbol, [...groupRows, row]]
+      : [groupSymbol, groupRows]);
+  }, []);
+}
 
-    if (isMonthlyRevenueRow(row)) {
-      const revenueInHundredMillion = Number(row.revenue) / 100000000;
-      const revenueText = formatNumber(revenueInHundredMillion);
-      const revenueMonth = row.revenue_year && row.revenue_month ? `${row.revenue_year}/${row.revenue_month}` : "最新";
+function normalizeChipRow(row: FinMindRow, now: string): SourceEvent[] {
+  const symbol = normalizeSymbol(row.stock_id);
+  const name = row.stock_name ?? symbol;
 
-      return [{
-        source: "finmind" as const,
-        title: `${symbol} ${name} ${revenueMonth} 月營收 ${revenueText} 億元`,
-        url: finMindUrl("TaiwanStockMonthRevenue", symbol),
-        publishedAt: parseFinMindDate(row.date, now),
-        engagement: Math.round(revenueInHundredMillion),
-        symbols: [symbol]
-      }];
-    }
-
-    if (isMarginRow(row)) {
-      const delta = marginDelta(row);
-      const label = translateMarginName(row.name);
-      const direction = delta >= 0 ? "增加" : "減少";
-      const balance = finiteNumber(row.TodayBalance) ? ` 餘額 ${row.TodayBalance}` : "";
-
-      return [{
-        source: "finmind" as const,
-        title: `${symbol} ${name} ${label}${direction} ${Math.abs(delta)} 張${balance}`,
-        url: finMindUrl("TaiwanStockMarginPurchaseShortSale", symbol, row.name),
-        publishedAt: now,
-        engagement: Math.abs(delta),
-        symbols: [symbol],
-        metrics: undefined
-      }];
-    }
-
-    if (isInstitutionalRow(row)) {
-      const net = Number(row.buy ?? 0) - Number(row.sell ?? 0);
-      const direction = net >= 0 ? "買超" : "賣超";
-
-      return [{
-        source: "finmind" as const,
-        title: `${symbol} ${name} ${translateInstitutionName(row.name)} ${direction} ${Math.abs(net)} 股`,
-        url: finMindUrl("TaiwanStockInstitutionalInvestorsBuySell", symbol, row.name),
-        publishedAt: now,
-        engagement: Math.abs(net),
-        symbols: [symbol],
-        metrics: undefined
-      }];
-    }
-
-    if (!finiteNumber(row.close) && !finiteNumber(row.Trading_Volume)) {
-      return [];
-    }
-
-    const title = `${symbol} ${name} close ${row.close ?? "N/A"} volume ${row.Trading_Volume ?? 0}`;
-
+  if (isMarginRow(row)) {
+    const delta = marginDelta(row);
+    const label = translateMarginName(row.name);
+    const direction = delta >= 0 ? "增加" : "減少";
+    const balance = finiteNumber(row.TodayBalance) ? ` 餘額 ${row.TodayBalance}` : "";
     return [{
       source: "finmind" as const,
-      title,
-      url: finMindUrl("TaiwanStockPrice", symbol),
+      title: `${symbol} ${name} ${label}${direction} ${Math.abs(delta)} 張${balance}`,
+      url: finMindUrl("TaiwanStockMarginPurchaseShortSale", symbol, row.name),
       publishedAt: now,
-      engagement: Number(row.Trading_Volume ?? 0),
-      symbols: [symbol]
+      engagement: Math.abs(delta),
+      symbols: [symbol],
+      metrics: undefined
     }];
-  });
+  }
+
+  const net = Number(row.buy ?? 0) - Number(row.sell ?? 0);
+  const direction = net >= 0 ? "買超" : "賣超";
+  return [{
+    source: "finmind" as const,
+    title: `${symbol} ${name} ${translateInstitutionName(row.name)} ${direction} ${Math.abs(net)} 股`,
+    url: finMindUrl("TaiwanStockInstitutionalInvestorsBuySell", symbol, row.name),
+    publishedAt: now,
+    engagement: Math.abs(net),
+    symbols: [symbol],
+    metrics: undefined
+  }];
+}
+
+function priceSummaryEvent(
+  symbol: string,
+  rows: FinMindRow[],
+  securityTypes: ReadonlyMap<string, SecurityType>,
+  now: string
+): SourceEvent[] {
+  const name = rows.find((row) => row.stock_name)?.stock_name ?? symbol;
+  const securityType = securityTypes.get(symbol) ?? "unknown";
+  const metrics = computeFinMindMetrics(rows, securityType);
+  const latest = latestByDate(rows);
+  return [{
+    source: "finmind" as const,
+    title: priceSummaryTitle(symbol, name, latest?.close, metrics),
+    url: finMindUrl("TaiwanStockPrice", symbol),
+    publishedAt: now,
+    engagement: 0,
+    symbols: [symbol],
+    metrics
+  }];
+}
+
+function revenueSummaryEvent(symbol: string, rows: FinMindRow[], now: string): SourceEvent[] {
+  const name = rows.find((row) => row.stock_name)?.stock_name ?? symbol;
+  const metrics = computeFinMindMetrics(rows, "unknown");
+  const latest = latestByDate(rows);
+  const revenueInHundredMillion = Number(latest?.revenue ?? 0) / 100000000;
+  const revenueText = formatNumber(revenueInHundredMillion);
+  const revenueMonth = latest?.revenue_year && latest?.revenue_month ? `${latest.revenue_year}/${latest.revenue_month}` : "最新";
+  return [{
+    source: "finmind" as const,
+    title: revenueSummaryTitle(symbol, name, revenueMonth, revenueText, metrics),
+    url: finMindUrl("TaiwanStockMonthRevenue", symbol),
+    publishedAt: parseFinMindDate(latest?.date, now),
+    engagement: 0,
+    symbols: [symbol],
+    metrics
+  }];
+}
+
+function latestByDate(rows: FinMindRow[]): FinMindRow | undefined {
+  return [...rows].sort((left, right) => (right.date ?? "").localeCompare(left.date ?? ""))[0];
+}
+
+function priceSummaryTitle(symbol: string, name: string, close: number | undefined, metrics: FinMindMetrics): string {
+  const closeText = finiteNumber(close) ? formatNumber(close) : "N/A";
+  const parts = [`${symbol} ${name} 收 ${closeText}`];
+  if (typeof metrics.priceChangePct === "number") {
+    parts.push(`漲 ${signedPct(metrics.priceChangePct)}`);
+  }
+  if (typeof metrics.volumeRatio === "number") {
+    parts.push(`量 ${metrics.volumeRatio.toFixed(1)}x`);
+    if (metrics.volumeRatio >= 2) {
+      parts.push("爆量");
+    }
+  }
+  if (metrics.limitFlag === "limit_up") {
+    parts.push("漲停");
+  }
+  if (metrics.limitFlag === "limit_down") {
+    parts.push("跌停");
+  }
+  return parts.join(" ");
+}
+
+function revenueSummaryTitle(symbol: string, name: string, revenueMonth: string, revenueText: string, metrics: FinMindMetrics): string {
+  const parts = [`${symbol} ${name} ${revenueMonth} 月營收 ${revenueText}億`];
+  if (typeof metrics.revenueYoYPct === "number") {
+    parts.push(`YoY ${signedPct(metrics.revenueYoYPct)}`);
+  }
+  if (typeof metrics.revenueMoMPct === "number") {
+    parts.push(`MoM ${signedInt(metrics.revenueMoMPct)}`);
+  }
+  if (metrics.isRecentHigh) {
+    parts.push("近3月高");
+  }
+  return parts.join(" ");
+}
+
+function signedPct(value: number): string {
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
+}
+
+function signedInt(value: number): string {
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${Math.round(value)}%`;
 }
 
 export function normalizeFinMindStockInfoRows(rows: FinMindStockInfoRow[], now: string): UniverseStock[] {
