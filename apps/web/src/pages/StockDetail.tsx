@@ -129,6 +129,13 @@ export function StockDetail({ symbol, stock, events, isWatchlisted = false, onAd
                   </div>
                   <strong>{event.title}</strong>
                   <p>{event.reason}</p>
+                  {formatMetricChips(event.metrics).length > 0 ? (
+                    <div className="metric-chips" aria-label={`${event.id} 衍生指標`}>
+                      {formatMetricChips(event.metrics).map((chip) => (
+                        <span key={chip.key} className={`metric-chip metric-${chip.key}`}>{chip.label}</span>
+                      ))}
+                    </div>
+                  ) : null}
                   <a href={event.url}>證據連結</a>
                 </div>
               </li>

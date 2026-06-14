@@ -162,6 +162,51 @@ describe("StockDetail", () => {
     expect(formatMetricChips({})).toEqual([]);
     expect(formatMetricChips({ isRecentHigh: false })).toEqual([]);
   });
+
+  it("renders FinMind 衍生指標 chips from each event's own metrics", () => {
+    const html = renderToString(<StockDetail
+      symbol="2330"
+      events={[
+        event({
+          id: "finmind:price",
+          source: "finmind",
+          title: "2330 漲 5.5% 量比 3.1x",
+          tags: ["價格量能"],
+          metrics: { priceChangePct: 5.5, volumeRatio: 3.1, liquidityTier: "充足" }
+        }),
+        event({
+          id: "finmind:revenue",
+          source: "finmind",
+          title: "2330 月營收 YoY +42.3%",
+          tags: ["營收"],
+          metrics: { revenueYoYPct: 42.3, isRecentHigh: true }
+        })
+      ]}
+    />);
+
+    expect(html).toContain("漲跌 +5.5%");
+    expect(html).toContain("量比 3.1x");
+    expect(html).toContain("流動性 充足");
+    expect(html).toContain("YoY +42.3%");
+    expect(html).toContain("近期新高");
+  });
+
+  it("does not render metric chips for events without metrics", () => {
+    const html = renderToString(<StockDetail
+      symbol="2330"
+      events={[event({ id: "rss:1", source: "rss", title: "台積電 AI 新聞", tags: ["AI"] })]}
+    />);
+
+    expect(html).not.toContain("量比");
+    expect(html).not.toContain("流動性");
+  });
+
+  it("keeps research-only notice and copy unchanged", () => {
+    const html = renderToString(<StockDetail symbol="2330" events={[]} />);
+
+    expect(html).toContain("研究用途");
+    expect(html).toContain("不是買賣建議");
+  });
 });
 
 function event(overrides: Partial<EventRecord>): EventRecord {
