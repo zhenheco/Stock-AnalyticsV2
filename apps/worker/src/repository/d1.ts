@@ -1,4 +1,4 @@
-import type { Candidate, DailySnapshot, EventRecord, ScoreBreakdown, SourceKind, SourceRun, SourceRunStatus, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
+import type { Candidate, DailySnapshot, EventRecord, FinMindMetrics, ScoreBreakdown, SourceKind, SourceRun, SourceRunStatus, UniverseStock, WatchlistEntry } from "@stock-analytics/shared";
 import type { Repository } from "./types";
 
 interface D1Database {
@@ -62,8 +62,8 @@ export class D1Repository implements Repository {
   async saveEvents(events: EventRecord[]): Promise<void> {
     await batchStatements(this.db, events.map((event) => this.db.prepare(`
       INSERT OR REPLACE INTO events
-        (id, source, symbol, title, url, published_at, engagement, tags_json, sentiment, reason, confidence_score)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, source, symbol, title, url, published_at, engagement, tags_json, sentiment, reason, confidence_score, metrics_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       event.id,
       event.source,
@@ -75,7 +75,8 @@ export class D1Repository implements Repository {
       JSON.stringify(event.tags),
       event.sentiment,
       event.reason,
-      event.confidenceScore ?? 50
+      event.confidenceScore ?? 50,
+      event.metrics ? JSON.stringify(event.metrics) : null
     )));
   }
 
@@ -240,6 +241,7 @@ interface EventRow {
   sentiment: number;
   reason: string;
   confidence_score?: number;
+  metrics_json?: string | null;
 }
 
 interface WatchlistRow {
@@ -321,6 +323,7 @@ function parseSourceEventCounts(sourceCountsJson: string | undefined, sourcesJso
 }
 
 function rowToEvent(row: EventRow): EventRecord {
+  const metrics = parseFinMindMetrics(row.metrics_json);
   return {
     id: row.id,
     source: row.source,
@@ -332,7 +335,8 @@ function rowToEvent(row: EventRow): EventRecord {
     tags: JSON.parse(row.tags_json) as string[],
     sentiment: row.sentiment,
     reason: row.reason,
-    confidenceScore: row.confidence_score ?? undefined
+    confidenceScore: row.confidence_score ?? undefined,
+    ...(metrics ? { metrics } : {})
   };
 }
 
@@ -392,6 +396,11 @@ function parseJsonObject(value: string | null | undefined): Record<string, unkno
 function parseScoreBreakdown(value: string | null | undefined): ScoreBreakdown | undefined {
   const parsed = parseJsonObject(value);
   return Object.keys(parsed).length > 0 ? parsed as unknown as ScoreBreakdown : undefined;
+}
+
+function parseFinMindMetrics(value: string | null | undefined): FinMindMetrics | undefined {
+  const parsed = parseJsonObject(value);
+  return Object.keys(parsed).length > 0 ? parsed as unknown as FinMindMetrics : undefined;
 }
 
 function parseNumberRecord(value: string | null | undefined): Record<string, number> {

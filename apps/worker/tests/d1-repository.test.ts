@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Candidate } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, FinMindMetrics } from "@stock-analytics/shared";
 import { D1Repository } from "../src/repository/d1";
 
 describe("D1Repository", () => {
@@ -63,6 +63,46 @@ describe("D1Repository", () => {
       })
     ]);
   });
+
+  it("round-trips finmind metrics on events", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    const metrics: FinMindMetrics = {
+      revenueYoYPct: 42,
+      revenueMoMPct: 5.5,
+      isRecentHigh: true,
+      liquidityTier: "充足",
+      avgDailyTurnoverTwd: 250_000_000
+    };
+
+    await repo.saveEvents([event("finmind-2330-rev", "2330", { metrics })]);
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({ id: "finmind-2330-rev", metrics })
+    ]);
+  });
+
+  it("loads legacy event rows without a metrics_json column", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    db.events.set("legacy", {
+      id: "legacy",
+      source: "ptt",
+      symbol: "2317",
+      title: "鴻海討論熱度",
+      url: "https://example.com/legacy",
+      published_at: "2026-05-26T00:00:00.000Z",
+      engagement: 12,
+      tags_json: "[\"討論熱度\"]",
+      sentiment: 3,
+      reason: "ptt 事件訊號命中",
+      confidence_score: 50
+    });
+
+    const [loaded] = await repo.listEventsForSymbol("2317");
+    expect(loaded).toMatchObject({ id: "legacy", symbol: "2317" });
+    expect(loaded.metrics).toBeUndefined();
+  });
 });
 
 function candidate(symbol: string, name: string): Candidate {
@@ -80,8 +120,26 @@ function candidate(symbol: string, name: string): Candidate {
   };
 }
 
+function event(id: string, symbol: string, overrides: Partial<EventRecord> = {}): EventRecord {
+  return {
+    id,
+    source: "finmind",
+    symbol,
+    title: `${symbol} 月營收 YoY +42.0%`,
+    url: `https://example.com/${id}`,
+    publishedAt: "2026-05-27T00:00:00.000Z",
+    engagement: 0,
+    tags: ["營收高成長"],
+    sentiment: 3,
+    reason: "finmind 衍生訊號",
+    confidenceScore: 60,
+    ...overrides
+  };
+}
+
 class FakeD1Database {
   readonly candidates = new Map<string, Record<string, unknown>>();
+  readonly events = new Map<string, Record<string, unknown>>();
   readonly watchlist = new Map<string, Record<string, unknown>>();
 
   prepare(query: string): FakeD1PreparedStatement {
@@ -121,6 +179,12 @@ class FakeD1PreparedStatement {
         : [...this.db.watchlist.values()].sort((left, right) => String(left.symbol).localeCompare(String(right.symbol)));
       return { results: rows.map((row) => row as T) };
     }
+    if (this.query.includes("FROM events")) {
+      const rows = this.query.includes("WHERE symbol = ?")
+        ? [...this.db.events.values()].filter((row) => row.symbol === this.values[0])
+        : [...this.db.events.values()];
+      return { results: rows.map((row) => row as T) };
+    }
     return { results: [] };
   }
 
@@ -155,6 +219,36 @@ class FakeD1PreparedStatement {
         sources_json: sourcesJson,
         tags_json: tagsJson,
         reason
+      });
+    }
+    if (this.query.includes("INSERT OR REPLACE INTO events")) {
+      const [
+        id,
+        source,
+        symbol,
+        title,
+        url,
+        publishedAt,
+        engagement,
+        tagsJson,
+        sentiment,
+        reason,
+        confidenceScore,
+        metricsJson
+      ] = this.values;
+      this.db.events.set(String(id), {
+        id,
+        source,
+        symbol,
+        title,
+        url,
+        published_at: publishedAt,
+        engagement,
+        tags_json: tagsJson,
+        sentiment,
+        reason,
+        confidence_score: confidenceScore,
+        metrics_json: metricsJson
       });
     }
     if (this.query.includes("INSERT OR IGNORE INTO watchlist")) {
