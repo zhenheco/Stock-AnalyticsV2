@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { normalizeFinMindRows, normalizeFinMindStockInfoRows, normalizeMopsMaterialInfoRows, normalizeTwseNewsRows, parsePttTitles, parseRssItems } from "../src/parsers";
-import type { EventRecord, FinMindMetrics, SourceEvent } from "../src/types";
-
-const __metricsContract: { ev: SourceEvent["metrics"]; rec: EventRecord["metrics"] } = {
-  ev: undefined as FinMindMetrics | undefined,
-  rec: undefined as FinMindMetrics | undefined
-};
-void __metricsContract;
 
 describe("parsePttTitles", () => {
   it("extracts title, url, push count, published time, and mentioned symbols", () => {
@@ -278,6 +271,29 @@ describe("normalizeFinMindRows", () => {
         engagement: 800,
         symbols: ["2330"]
       }
+    ]);
+  });
+
+  it("keeps institutional/margin chip rows one event per row with metrics undefined", () => {
+    const events = normalizeFinMindRows([
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 },
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "MarginPurchase", buy: 900, sell: 100, Return: 0, TodayBalance: 12000, YesBalance: 11200 }
+    ], "2026-05-27T05:00:00.000Z");
+
+    expect(events).toHaveLength(2);
+    expect(events.every((event) => event.metrics === undefined)).toBe(true);
+    expect(events[0]).toMatchObject({ title: "2330 台積電 外資 買超 4000 股", engagement: 4000 });
+    expect(events[1]).toMatchObject({ title: "2330 台積電 融資增加 800 張 餘額 12000", engagement: 800 });
+  });
+
+  it("accepts an optional symbol→securityType map without breaking chip rows", () => {
+    const securityTypes = new Map<string, import("../src/types").SecurityType>([["2330", "stock"]]);
+    const events = normalizeFinMindRows([
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", name: "Foreign_Investor", buy: 5000, sell: 1000 }
+    ], "2026-05-27T05:00:00.000Z", securityTypes);
+
+    expect(events).toEqual([
+      expect.objectContaining({ title: "2330 台積電 外資 買超 4000 股", metrics: undefined })
     ]);
   });
 

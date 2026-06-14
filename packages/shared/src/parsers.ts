@@ -1,5 +1,5 @@
 import { extractMentionedSymbols } from "./entity";
-import type { FinMindRow, FinMindStockInfoRow, MopsMaterialInfoRow, SecurityType, SourceEvent, TwseNewsRow, UniverseStock } from "./types";
+import type { FinMindMetrics, FinMindRow, FinMindStockInfoRow, MopsMaterialInfoRow, SecurityType, SourceEvent, TwseNewsRow, UniverseStock } from "./types";
 
 export function parsePttTitles(
   html: string,
@@ -113,7 +113,12 @@ export function normalizeMopsMaterialInfoRows(rows: MopsMaterialInfoRow[], fallb
   });
 }
 
-export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEvent[] {
+export function normalizeFinMindRows(
+  rows: FinMindRow[],
+  now: string,
+  securityTypes: ReadonlyMap<string, SecurityType> = new Map()
+): SourceEvent[] {
+  void securityTypes;
   return rows.flatMap((row) => {
     const symbol = normalizeSymbol(row.stock_id);
     if (!/^\d{4,6}[A-Z]?$/.test(symbol)) {
@@ -148,7 +153,8 @@ export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEve
         url: finMindUrl("TaiwanStockMarginPurchaseShortSale", symbol, row.name),
         publishedAt: now,
         engagement: Math.abs(delta),
-        symbols: [symbol]
+        symbols: [symbol],
+        metrics: undefined
       }];
     }
 
@@ -162,7 +168,8 @@ export function normalizeFinMindRows(rows: FinMindRow[], now: string): SourceEve
         url: finMindUrl("TaiwanStockInstitutionalInvestorsBuySell", symbol, row.name),
         publishedAt: now,
         engagement: Math.abs(net),
-        symbols: [symbol]
+        symbols: [symbol],
+        metrics: undefined
       }];
     }
 
