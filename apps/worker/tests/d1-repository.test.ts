@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Candidate, EventRecord, FinMindMetrics } from "@stock-analytics/shared";
+import type { Candidate, EventRecord, FinMindMetrics, UniverseStock } from "@stock-analytics/shared";
+import { recomputeCandidates } from "../src/ingest";
 import { D1Repository } from "../src/repository/d1";
 
 describe("D1Repository", () => {
@@ -150,6 +151,46 @@ describe("D1Repository", () => {
     expect(loaded).toMatchObject({ symbol: "2317", name: "鴻海" });
     expect(loaded.metrics).toBeUndefined();
   });
+
+  it("keeps new-format FinMind price summaries with metrics after D1 recompute", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    await repo.upsertUniverse([universeStock("2330", "台積電")]);
+
+    await repo.saveEvents([
+      event("finmind-2330-price", "2330", {
+        title: "2330 台積電 收 985 漲 +6.5% 量 3.0x 爆量",
+        url: "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=2330",
+        metrics: { priceChangePct: 6.5, volumeRatio: 3 }
+      })
+    ]);
+
+    await recomputeCandidates(repo);
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([
+      expect.objectContaining({
+        id: "finmind-2330-price",
+        metrics: expect.objectContaining({ priceChangePct: 6.5 })
+      })
+    ]);
+  });
+
+  it("drops new-format FinMind price summaries without metrics after D1 recompute", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    await repo.upsertUniverse([universeStock("2330", "台積電")]);
+
+    await repo.saveEvents([
+      event("finmind-2330-price", "2330", {
+        title: "2330 台積電 收 985",
+        url: "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=2330"
+      })
+    ]);
+
+    await recomputeCandidates(repo);
+
+    await expect(repo.listEventsForSymbol("2330")).resolves.toEqual([]);
+  });
 });
 
 function candidate(symbol: string, name: string): Candidate {
@@ -184,9 +225,21 @@ function event(id: string, symbol: string, overrides: Partial<EventRecord> = {})
   };
 }
 
+function universeStock(symbol: string, name: string): UniverseStock {
+  return {
+    symbol,
+    name,
+    market: "上市",
+    industry: "半導體業",
+    securityType: "stock",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  };
+}
+
 class FakeD1Database {
   readonly candidates = new Map<string, Record<string, unknown>>();
   readonly events = new Map<string, Record<string, unknown>>();
+  readonly universe = new Map<string, Record<string, unknown>>();
   readonly watchlist = new Map<string, Record<string, unknown>>();
 
   prepare(query: string): FakeD1PreparedStatement {
@@ -232,12 +285,20 @@ class FakeD1PreparedStatement {
         : [...this.db.events.values()];
       return { results: rows.map((row) => row as T) };
     }
+    if (this.query.includes("FROM universe")) {
+      const rows = [...this.db.universe.values()].sort((left, right) => String(left.symbol).localeCompare(String(right.symbol)));
+      return { results: rows.map((row) => row as T) };
+    }
     return { results: [] };
   }
 
   async run(): Promise<unknown> {
     if (this.query.includes("DELETE FROM candidates")) {
       this.db.candidates.clear();
+      return {};
+    }
+    if (this.query.includes("DELETE FROM events")) {
+      this.db.events.clear();
       return {};
     }
     if (this.query.includes("INSERT OR REPLACE INTO candidates")) {
@@ -302,6 +363,17 @@ class FakeD1PreparedStatement {
         reason,
         confidence_score: confidenceScore,
         metrics_json: metricsJson
+      });
+    }
+    if (this.query.includes("INSERT OR REPLACE INTO universe")) {
+      const [symbol, name, market, industry, securityType, updatedAt] = this.values;
+      this.db.universe.set(String(symbol), {
+        symbol,
+        name,
+        market,
+        industry,
+        security_type: securityType,
+        updated_at: updatedAt
       });
     }
     if (this.query.includes("INSERT OR IGNORE INTO watchlist")) {
