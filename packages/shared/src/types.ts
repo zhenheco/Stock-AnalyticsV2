@@ -48,6 +48,7 @@ export interface Candidate {
   reason: string;
   scoreBreakdown?: ScoreBreakdown;
   confidenceScore?: number;
+  metrics?: FinMindMetrics;
 }
 
 export interface WatchlistEntry {
