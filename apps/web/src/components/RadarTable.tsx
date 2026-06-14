@@ -1,4 +1,4 @@
-import type { Candidate, SourceKind } from "@stock-analytics/shared";
+import type { Candidate, FinMindMetrics, SourceKind } from "@stock-analytics/shared";
 
 interface RadarTableProps {
   candidates: Candidate[];
@@ -195,6 +195,31 @@ export interface SourceMixSegment {
   percent: number;
 }
 
+export interface MetricBadge {
+  key: string;
+  label: string;
+}
+
+export function formatMetricBadges(metrics: FinMindMetrics | undefined): MetricBadge[] {
+  if (!metrics) {
+    return [];
+  }
+  const badges: MetricBadge[] = [];
+  if (metrics.revenueYoYPct !== undefined) {
+    badges.push({ key: "revenueYoY", label: `YoY ${formatSignedPct(metrics.revenueYoYPct)}` });
+  }
+  if (metrics.volumeRatio !== undefined) {
+    badges.push({ key: "volumeRatio", label: `量比 ${metrics.volumeRatio.toFixed(1)}x` });
+  }
+  if (metrics.priceChangePct !== undefined) {
+    badges.push({ key: "priceChange", label: `漲跌 ${formatSignedPct(metrics.priceChangePct)}` });
+  }
+  if (metrics.liquidityTier !== undefined) {
+    badges.push({ key: "liquidity", label: `流動性 ${metrics.liquidityTier}` });
+  }
+  return badges;
+}
+
 const SOURCE_LABELS: Record<SourceKind, string> = {
   ptt: "PTT",
   rss: "RSS",
@@ -240,6 +265,12 @@ function fallbackSourceEventCounts(candidate: Candidate): Partial<Record<SourceK
 
 function sum(items: number[]): number {
   return items.reduce((total, value) => total + value, 0);
+}
+
+function formatSignedPct(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded.toFixed(1)}%`;
 }
 
 function formatTime(value: string): string {

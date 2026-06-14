@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { filterAndSortCandidates, RadarTable, sourceMixSegments, type RadarFilters } from "../src/components/RadarTable";
+import { filterAndSortCandidates, formatMetricBadges, RadarTable, sourceMixSegments, type RadarFilters } from "../src/components/RadarTable";
 import type { Candidate } from "@stock-analytics/shared";
 
 describe("RadarTable", () => {
@@ -220,6 +220,28 @@ describe("RadarTable", () => {
 
     expect(html).not.toContain("加入追蹤");
     expect(html).toContain("已追蹤");
+  });
+
+  it("formats present FinMind metrics into research badges", () => {
+    expect(formatMetricBadges({
+      revenueYoYPct: 42.3,
+      volumeRatio: 3.14,
+      priceChangePct: -6.7,
+      liquidityTier: "充足"
+    })).toEqual([
+      { key: "revenueYoY", label: "YoY +42.3%" },
+      { key: "volumeRatio", label: "量比 3.1x" },
+      { key: "priceChange", label: "漲跌 -6.7%" },
+      { key: "liquidity", label: "流動性 充足" }
+    ]);
+  });
+
+  it("omits badges for undefined metric fields and returns empty for missing metrics", () => {
+    expect(formatMetricBadges({ volumeRatio: 2.5 })).toEqual([
+      { key: "volumeRatio", label: "量比 2.5x" }
+    ]);
+    expect(formatMetricBadges(undefined)).toEqual([]);
+    expect(formatMetricBadges({})).toEqual([]);
   });
 });
 
