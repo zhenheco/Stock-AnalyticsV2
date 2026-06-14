@@ -585,7 +585,16 @@ describe("worker routes", () => {
         if (url.includes("TaiwanStockPrice")) {
           const symbol = new URL(url).searchParams.get("data_id") ?? "";
           requestedSymbols.push(symbol);
-          return new Response(JSON.stringify({ data: [{ stock_id: symbol, stock_name: "鴻海", close: 180, Trading_Volume: 1000 }] }));
+          return new Response(JSON.stringify({
+            data: [
+              { stock_id: symbol, stock_name: "鴻海", date: "2026-05-22", close: 100, Trading_Volume: 1000, Trading_money: 100000 },
+              { stock_id: symbol, stock_name: "鴻海", date: "2026-05-23", close: 100, Trading_Volume: 1000, Trading_money: 100000 },
+              { stock_id: symbol, stock_name: "鴻海", date: "2026-05-24", close: 100, Trading_Volume: 1000, Trading_money: 100000 },
+              { stock_id: symbol, stock_name: "鴻海", date: "2026-05-25", close: 100, Trading_Volume: 1000, Trading_money: 100000 },
+              { stock_id: symbol, stock_name: "鴻海", date: "2026-05-26", close: 100, Trading_Volume: 1000, Trading_money: 100000 },
+              { stock_id: symbol, stock_name: "鴻海", date: "2026-05-27", close: 110, Trading_Volume: 1000, Trading_money: 110000 }
+            ]
+          }));
         }
         return new Response("");
       }

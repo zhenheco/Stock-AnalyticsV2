@@ -12,6 +12,7 @@ import {
   type FinMindRow,
   type FinMindStockInfoRow,
   type MopsMaterialInfoRow,
+  type SecurityType,
   type SourceEvent,
   type TwseNewsRow
 } from "@stock-analytics/shared";
@@ -46,13 +47,17 @@ export async function runIngestion(input: IngestionInput): Promise<void> {
     ...Object.fromEntries(existingUniverse.map((stock) => [stock.symbol, stock.name])),
     ...Object.fromEntries(incomingUniverse.map((stock) => [stock.symbol, stock.name]))
   };
+  const securityTypes = new Map<string, SecurityType>([
+    ...existingUniverse.map((stock) => [stock.symbol, stock.securityType] as const),
+    ...incomingUniverse.map((stock) => [stock.symbol, stock.securityType] as const)
+  ]);
   const finmindRows = enrichFinMindRowNames(input.sources.finmindRows ?? [], universeNames);
   const sourceEvents = [
     ...(input.sources.pttHtml ? parsePttTitles(input.sources.pttHtml, "https://www.ptt.cc", aliases, validSymbols) : []),
     ...(input.sources.rssXml ? parseRssItems(input.sources.rssXml, aliases, validSymbols, false) : []),
     ...(input.sources.twseNewsRows ? normalizeTwseNewsRows(input.sources.twseNewsRows, aliases, validSymbols) : []),
     ...(input.sources.mopsMaterialRows ? normalizeMopsMaterialInfoRows(input.sources.mopsMaterialRows) : []),
-    ...normalizeFinMindRows(finmindRows, input.now)
+    ...normalizeFinMindRows(finmindRows, input.now, securityTypes)
   ];
   const relevantSymbols = collectRelevantSymbols(sourceEvents, finmindRows);
   const relevantUniverse = incomingUniverse.filter((stock) => relevantSymbols.has(stock.symbol));
@@ -182,13 +187,24 @@ async function classifyWithFallback(
 }
 
 function isStoredEventStillSupported(event: EventRecord, aliases: Record<string, string>, validSymbols: ReadonlySet<string>): boolean {
-  if (event.source === "finmind" && event.title.match(/\sclose N\/A volume 0$/)) {
+  if (event.title.match(/\sclose N\/A volume 0$/)) {
+    return false;
+  }
+  if (isFinMindPriceSummary(event) && isNewPriceSummaryTitle(event.title) && event.metrics?.priceChangePct === undefined) {
     return false;
   }
   if (!validSymbols.has(event.symbol)) {
     return true;
   }
   return extractMentionedSymbols(event.title, aliases, validSymbols).includes(event.symbol);
+}
+
+function isFinMindPriceSummary(event: EventRecord): boolean {
+  return event.source === "finmind" && event.url.includes("dataset=TaiwanStockPrice");
+}
+
+function isNewPriceSummaryTitle(title: string): boolean {
+  return / 收 /.test(title);
 }
 
 function finMindDerivedTags(metrics?: FinMindMetrics): string[] {
