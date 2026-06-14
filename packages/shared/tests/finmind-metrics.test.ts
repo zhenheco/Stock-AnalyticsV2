@@ -52,4 +52,33 @@ describe("computeFinMindMetrics", () => {
 
     expect(metrics.priceChangePct).toBeUndefined();
   });
+
+  it("computes volumeRatio as today volume over mean of prior trading days, 1 decimal", () => {
+    const rows = [
+      priceRow("2026-06-06", 100, 100),
+      priceRow("2026-06-07", 100, 100),
+      priceRow("2026-06-08", 100, 100),
+      priceRow("2026-06-09", 100, 100),
+      priceRow("2026-06-10", 100, 100),
+      priceRow("2026-06-13", 100, 300)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.volumeRatio).toBe(3);
+  });
+
+  it("returns undefined volumeRatio when prior segment has fewer than 5 trading days", () => {
+    const rows = [
+      priceRow("2026-06-09", 100, 100),
+      priceRow("2026-06-10", 100, 100),
+      priceRow("2026-06-11", 100, 100),
+      priceRow("2026-06-12", 100, 100),
+      priceRow("2026-06-13", 100, 300)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.volumeRatio).toBeUndefined();
+  });
 });
