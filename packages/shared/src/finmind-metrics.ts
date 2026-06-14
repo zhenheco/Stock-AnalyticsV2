@@ -14,13 +14,18 @@ export function computeFinMindMetrics(rows: FinMindRow[], securityType: Security
   const limitFlag = computeLimitFlag(priceChangePct, securityType);
   const avgDailyTurnoverTwd = computeAvgDailyTurnoverTwd(priceRows);
   const liquidityTier = computeLiquidityTier(avgDailyTurnoverTwd);
+  const revenueRows = sortedRevenueRows(rows);
+  const revenueYoYPct = computeRevenueYoYPct(revenueRows);
+  const revenueMoMPct = computeRevenueMoMPct(revenueRows);
 
   return {
     ...(priceChangePct === undefined ? {} : { priceChangePct }),
     ...(volumeRatio === undefined ? {} : { volumeRatio }),
     ...(limitFlag === undefined ? {} : { limitFlag }),
     ...(avgDailyTurnoverTwd === undefined ? {} : { avgDailyTurnoverTwd }),
-    ...(liquidityTier === undefined ? {} : { liquidityTier })
+    ...(liquidityTier === undefined ? {} : { liquidityTier }),
+    ...(revenueYoYPct === undefined ? {} : { revenueYoYPct }),
+    ...(revenueMoMPct === undefined ? {} : { revenueMoMPct })
   };
 }
 
@@ -29,6 +34,17 @@ function sortedPriceRows(rows: FinMindRow[]): FinMindRow[] {
     .filter((row) => finiteNumber(row.close))
     .slice()
     .sort((left, right) => (left.date ?? "").localeCompare(right.date ?? ""));
+}
+
+function sortedRevenueRows(rows: FinMindRow[]): FinMindRow[] {
+  return rows
+    .filter((row) => finiteNumber(row.revenue) && finiteNumber(row.revenue_year) && finiteNumber(row.revenue_month))
+    .slice()
+    .sort((left, right) => revenueKey(left) - revenueKey(right));
+}
+
+function revenueKey(row: FinMindRow): number {
+  return (row.revenue_year ?? 0) * 100 + (row.revenue_month ?? 0);
 }
 
 function computePriceChangePct(priceRows: FinMindRow[]): number | undefined {
@@ -117,6 +133,36 @@ function computeLiquidityTier(turnover: number | undefined): "充足" | "偏低"
     return "偏低";
   }
   return "極低";
+}
+
+function computeRevenueYoYPct(revenueRows: FinMindRow[]): number | undefined {
+  const latest = revenueRows[revenueRows.length - 1];
+  if (!latest) {
+    return undefined;
+  }
+  const prior = revenueRows.find(
+    (row) => row.revenue_year === (latest.revenue_year ?? 0) - 1 && row.revenue_month === latest.revenue_month
+  );
+  const latestRevenue = latest.revenue;
+  const priorRevenue = prior?.revenue;
+  if (!finiteNumber(latestRevenue) || !finiteNumber(priorRevenue) || priorRevenue === 0) {
+    return undefined;
+  }
+  return round2(((latestRevenue - priorRevenue) / priorRevenue) * 100);
+}
+
+function computeRevenueMoMPct(revenueRows: FinMindRow[]): number | undefined {
+  if (revenueRows.length < 2) {
+    return undefined;
+  }
+  const latest = revenueRows[revenueRows.length - 1];
+  const prev = revenueRows[revenueRows.length - 2];
+  const latestRevenue = latest?.revenue;
+  const prevRevenue = prev?.revenue;
+  if (!finiteNumber(latestRevenue) || !finiteNumber(prevRevenue) || prevRevenue === 0) {
+    return undefined;
+  }
+  return round2(((latestRevenue - prevRevenue) / prevRevenue) * 100);
 }
 
 function mean(values: number[]): number {

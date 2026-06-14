@@ -160,4 +160,38 @@ describe("computeFinMindMetrics", () => {
     expect(metrics.avgDailyTurnoverTwd).toBeUndefined();
     expect(metrics.liquidityTier).toBeUndefined();
   });
+
+  it("computes revenueYoYPct against the same month of the prior year", () => {
+    const rows = [
+      revenueRow(2025, 5, 100),
+      revenueRow(2026, 4, 120),
+      revenueRow(2026, 5, 140)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.revenueYoYPct).toBe(40);
+  });
+
+  it("returns undefined revenueYoYPct when the prior-year month is missing", () => {
+    const rows = [revenueRow(2026, 4, 120), revenueRow(2026, 5, 140)];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.revenueYoYPct).toBeUndefined();
+  });
+
+  it("computes revenueMoMPct against the immediately preceding revenue month", () => {
+    const rows = [revenueRow(2026, 4, 100), revenueRow(2026, 5, 125)];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.revenueMoMPct).toBe(25);
+  });
+
+  it("returns undefined revenueMoMPct when there is only one revenue month", () => {
+    const metrics = computeFinMindMetrics([revenueRow(2026, 5, 125)], "stock");
+
+    expect(metrics.revenueMoMPct).toBeUndefined();
+  });
 });
