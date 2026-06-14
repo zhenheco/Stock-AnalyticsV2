@@ -102,7 +102,7 @@ describe("D1Repository", () => {
 
     const [loaded] = await repo.listEventsForSymbol("2317");
     expect(loaded).toMatchObject({ id: "legacy", symbol: "2317" });
-    expect(loaded.metrics).toBeUndefined();
+    expect(loaded?.metrics).toBeUndefined();
   });
 
   it("round-trips finmind metrics on candidates", async () => {
@@ -149,7 +149,7 @@ describe("D1Repository", () => {
 
     const [loaded] = await repo.listCandidates();
     expect(loaded).toMatchObject({ symbol: "2317", name: "鴻海" });
-    expect(loaded.metrics).toBeUndefined();
+    expect(loaded?.metrics).toBeUndefined();
   });
 
   it("keeps new-format FinMind price summaries with metrics after D1 recompute", async () => {
