@@ -195,6 +195,23 @@ describe("computeFinMindMetrics", () => {
     expect(metrics.revenueMoMPct).toBeUndefined();
   });
 
+  it("returns undefined revenueMoMPct when the immediately preceding month is missing (gap)", () => {
+    // latest 2026/5 but only 2025/5 present — a 12-month change must NOT be reported as MoM
+    const rows = [revenueRow(2025, 5, 100), revenueRow(2026, 5, 140)];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.revenueMoMPct).toBeUndefined();
+  });
+
+  it("computes revenueMoMPct across a December→January year rollover", () => {
+    const rows = [revenueRow(2025, 12, 100), revenueRow(2026, 1, 130)];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.revenueMoMPct).toBe(30);
+  });
+
   it("marks isRecentHigh true when latest revenue is at least the max of prior months", () => {
     const rows = [
       revenueRow(2026, 3, 100),

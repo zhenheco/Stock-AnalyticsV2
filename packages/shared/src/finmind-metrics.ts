@@ -155,17 +155,20 @@ function computeRevenueYoYPct(revenueRows: FinMindRow[]): number | undefined {
 }
 
 function computeRevenueMoMPct(revenueRows: FinMindRow[]): number | undefined {
-  if (revenueRows.length < 2) {
-    return undefined;
-  }
   const latest = revenueRows[revenueRows.length - 1];
-  const prev = revenueRows[revenueRows.length - 2];
-  const latestRevenue = latest?.revenue;
-  const prevRevenue = prev?.revenue;
-  if (!finiteNumber(latestRevenue) || !finiteNumber(prevRevenue) || prevRevenue === 0) {
+  if (!latest || !finiteNumber(latest.revenue) || !finiteNumber(latest.revenue_year) || !finiteNumber(latest.revenue_month)) {
     return undefined;
   }
-  return round2(((latestRevenue - prevRevenue) / prevRevenue) * 100);
+  // MoM requires the IMMEDIATELY preceding calendar month (Jan rolls back to prior Dec).
+  // A non-adjacent older row (revenue history gap) must NOT be mislabelled as month-over-month.
+  const prevMonth = latest.revenue_month === 1 ? 12 : latest.revenue_month - 1;
+  const prevYear = latest.revenue_month === 1 ? latest.revenue_year - 1 : latest.revenue_year;
+  const prev = revenueRows.find((row) => row.revenue_year === prevYear && row.revenue_month === prevMonth);
+  const prevRevenue = prev?.revenue;
+  if (!finiteNumber(prevRevenue) || prevRevenue === 0) {
+    return undefined;
+  }
+  return round2(((latest.revenue - prevRevenue) / prevRevenue) * 100);
 }
 
 function computeIsRecentHigh(revenueRows: FinMindRow[]): boolean | undefined {
