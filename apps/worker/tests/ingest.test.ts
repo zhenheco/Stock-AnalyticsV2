@@ -492,4 +492,37 @@ describe("runIngestion", () => {
       })
     ]);
   });
+
+  it("passes computed metrics through ingestion onto the stored price summary event", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+
+    await runIngestion({
+      repo,
+      now: "2026-05-27T03:00:00.000Z",
+      sources: {
+        finmindRows: [
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-26", close: 924.6, Trading_Volume: 3000, Trading_money: 2_773_800 },
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-25", close: 900, Trading_Volume: 3000, Trading_money: 2_700_000 },
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-24", close: 890, Trading_Volume: 3000, Trading_money: 2_670_000 },
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-23", close: 880, Trading_Volume: 3000, Trading_money: 2_640_000 },
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-22", close: 870, Trading_Volume: 3000, Trading_money: 2_610_000 },
+          { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", close: 985, Trading_Volume: 30000, Trading_money: 29_550_000 }
+        ]
+      }
+    });
+
+    const events = await repo.listEventsForSymbol("2330");
+    const priceEvent = events.find((event) => event.url.includes("TaiwanStockPrice"));
+    expect(priceEvent?.metrics?.priceChangePct).toBeTypeOf("number");
+    expect(priceEvent?.metrics?.volumeRatio).toBeTypeOf("number");
+    expect(priceEvent?.engagement).toBe(0);
+  });
 });

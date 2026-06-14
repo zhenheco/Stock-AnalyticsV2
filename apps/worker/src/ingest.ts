@@ -119,7 +119,8 @@ export function expandSymbols(event: SourceEvent, classification = classifyEvent
       engagement: event.engagement,
       tags: classification.tags,
       sentiment: classification.sentiment,
-      reason: classification.reason
+      reason: classification.reason,
+      metrics: event.metrics
     };
   });
 }
