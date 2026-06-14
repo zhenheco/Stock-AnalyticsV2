@@ -546,6 +546,34 @@ describe("fetchLiveSources", () => {
     expect(startDatesByDataset["TaiwanStockInstitutionalInvestorsBuySell"]).toEqual(["2026-05-27"]);
     expect(startDatesByDataset["TaiwanStockMarginPurchaseShortSale"]).toEqual(["2026-05-27"]);
   });
+
+  it("widens the FinMind monthly-revenue window to now-430 days for YoY coverage", async () => {
+    const revenueStartDates: string[] = [];
+    await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        FINMIND_TOKEN: "token",
+        FINMIND_SYMBOLS: "2330",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("TaiwanStockMonthRevenue")) {
+          const startDate = new URL(url).searchParams.get("start_date");
+          if (startDate) {
+            revenueStartDates.push(startDate);
+          }
+        }
+        if (!url.includes("finmindtrade")) {
+          return textResponse("");
+        }
+        return jsonResponse({ data: [] });
+      }
+    });
+
+    expect(revenueStartDates).toEqual(["2025-03-23"]);
+  });
 });
 
 function jsonResponse(body: unknown): Response {

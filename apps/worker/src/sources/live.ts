@@ -425,7 +425,7 @@ function revenueStartDate(now: string): string {
   if (Number.isNaN(parsed.getTime())) {
     return now.slice(0, 10);
   }
-  parsed.setUTCDate(parsed.getUTCDate() - 75);
+  parsed.setUTCDate(parsed.getUTCDate() - 430);
   return parsed.toISOString().slice(0, 10);
 }
 
