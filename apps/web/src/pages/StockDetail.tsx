@@ -1,4 +1,4 @@
-import type { EventRecord, UniverseStock } from "@stock-analytics/shared";
+import type { EventRecord, FinMindMetrics, UniverseStock } from "@stock-analytics/shared";
 import { ResearchOnlyNotice } from "../components/ResearchOnlyNotice";
 
 interface StockDetailProps {
@@ -146,6 +146,37 @@ export interface ResearchEventGroup {
   events: EventRecord[];
 }
 
+export interface MetricChip {
+  key: string;
+  label: string;
+}
+
+export function formatMetricChips(metrics: FinMindMetrics | undefined): MetricChip[] {
+  if (!metrics) {
+    return [];
+  }
+  const chips: MetricChip[] = [];
+  if (metrics.revenueYoYPct !== undefined) {
+    chips.push({ key: "revenueYoY", label: `YoY ${formatSignedPct(metrics.revenueYoYPct)}` });
+  }
+  if (metrics.revenueMoMPct !== undefined) {
+    chips.push({ key: "revenueMoM", label: `MoM ${formatSignedPct(metrics.revenueMoMPct)}` });
+  }
+  if (metrics.priceChangePct !== undefined) {
+    chips.push({ key: "priceChange", label: `漲跌 ${formatSignedPct(metrics.priceChangePct)}` });
+  }
+  if (metrics.volumeRatio !== undefined) {
+    chips.push({ key: "volumeRatio", label: `量比 ${metrics.volumeRatio.toFixed(1)}x` });
+  }
+  if (metrics.liquidityTier !== undefined) {
+    chips.push({ key: "liquidity", label: `流動性 ${metrics.liquidityTier}` });
+  }
+  if (metrics.isRecentHigh) {
+    chips.push({ key: "recentHigh", label: "近期新高" });
+  }
+  return chips;
+}
+
 const RESEARCH_GROUPS: Array<Omit<ResearchEventGroup, "events">> = [
   { id: "social", label: "社群討論" },
   { id: "news", label: "新聞時事" },
@@ -219,6 +250,12 @@ function average(values: number[]): number {
     return 0;
   }
   return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function formatSignedPct(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded.toFixed(1)}%`;
 }
 
 function round(value: number): number {

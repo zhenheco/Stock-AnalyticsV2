@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { groupResearchEvents, summarizeResearch, StockDetail } from "../src/pages/StockDetail";
+import { formatMetricChips, groupResearchEvents, summarizeResearch, StockDetail } from "../src/pages/StockDetail";
 import type { EventRecord } from "@stock-analytics/shared";
 
 describe("StockDetail", () => {
@@ -134,6 +134,33 @@ describe("StockDetail", () => {
     expect(html).toContain("營收基本面");
     expect(html).toContain("台積電討論熱度升溫");
     expect(html).toContain("月營收");
+  });
+
+  it("formats present event metrics into research chips", () => {
+    expect(formatMetricChips({
+      revenueYoYPct: 18.6,
+      revenueMoMPct: -4.2,
+      priceChangePct: 9.98,
+      volumeRatio: 2.7,
+      liquidityTier: "偏低",
+      isRecentHigh: true
+    })).toEqual([
+      { key: "revenueYoY", label: "YoY +18.6%" },
+      { key: "revenueMoM", label: "MoM -4.2%" },
+      { key: "priceChange", label: "漲跌 +10.0%" },
+      { key: "volumeRatio", label: "量比 2.7x" },
+      { key: "liquidity", label: "流動性 偏低" },
+      { key: "recentHigh", label: "近期新高" }
+    ]);
+  });
+
+  it("omits chips for undefined fields and returns empty for missing metrics", () => {
+    expect(formatMetricChips({ priceChangePct: 3.0 })).toEqual([
+      { key: "priceChange", label: "漲跌 +3.0%" }
+    ]);
+    expect(formatMetricChips(undefined)).toEqual([]);
+    expect(formatMetricChips({})).toEqual([]);
+    expect(formatMetricChips({ isRecentHigh: false })).toEqual([]);
   });
 });
 
