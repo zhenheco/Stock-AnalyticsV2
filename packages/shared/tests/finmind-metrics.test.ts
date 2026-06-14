@@ -117,4 +117,47 @@ describe("computeFinMindMetrics", () => {
 
     expect(metrics.limitFlag).toBeUndefined();
   });
+
+  it("computes avgDailyTurnoverTwd from Trading_money over the latest window", () => {
+    const rows = [
+      priceRow("2026-06-12", 100, 1000, 2e8),
+      priceRow("2026-06-13", 100, 1000, 4e8)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.avgDailyTurnoverTwd).toBe(3e8);
+    expect(metrics.liquidityTier).toBe("充足");
+  });
+
+  it("falls back to close × Trading_Volume when Trading_money is missing", () => {
+    const rows = [
+      priceRow("2026-06-12", 50, 100000),
+      priceRow("2026-06-13", 50, 100000)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.avgDailyTurnoverTwd).toBe(5e6);
+    expect(metrics.liquidityTier).toBe("極低");
+  });
+
+  it("classifies the 偏低 liquidity tier at the 1e7 boundary", () => {
+    const rows = [
+      priceRow("2026-06-12", 100, 1000, 1e7),
+      priceRow("2026-06-13", 100, 1000, 1e7)
+    ];
+
+    const metrics = computeFinMindMetrics(rows, "stock");
+
+    expect(metrics.avgDailyTurnoverTwd).toBe(1e7);
+    expect(metrics.liquidityTier).toBe("偏低");
+  });
+
+  it("returns undefined turnover and tier when there are no price rows", () => {
+    const metrics = computeFinMindMetrics([revenueRow(2026, 5, 1000)], "stock");
+
+    expect(metrics.avgDailyTurnoverTwd).toBeUndefined();
+    expect(metrics.liquidityTier).toBeUndefined();
+  });
 });
