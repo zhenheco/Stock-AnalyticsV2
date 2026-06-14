@@ -117,9 +117,21 @@ export interface FinMindRow {
   YesBalance?: number;
   close?: number;
   Trading_Volume?: number;
+  Trading_money?: number;
   revenue?: number;
   revenue_month?: number;
   revenue_year?: number;
+}
+
+export interface FinMindMetrics {
+  priceChangePct?: number;
+  volumeRatio?: number;
+  limitFlag?: "limit_up" | "limit_down";
+  avgDailyTurnoverTwd?: number;
+  liquidityTier?: "充足" | "偏低" | "極低";
+  revenueYoYPct?: number;
+  revenueMoMPct?: number;
+  isRecentHigh?: boolean;
 }
 
 export interface FinMindStockInfoRow {
