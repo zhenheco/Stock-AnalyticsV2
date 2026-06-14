@@ -28,4 +28,28 @@ describe("computeFinMindMetrics", () => {
 
     expect(metrics).toEqual({});
   });
+
+  it("computes priceChangePct from the last two price rows, 2 decimals", () => {
+    const metrics = computeFinMindMetrics(
+      [priceRow("2026-06-12", 100, 1000), priceRow("2026-06-13", 105, 1200)],
+      "stock"
+    );
+
+    expect(metrics.priceChangePct).toBe(5);
+  });
+
+  it("returns undefined priceChangePct when fewer than 2 price rows", () => {
+    const metrics = computeFinMindMetrics([priceRow("2026-06-13", 105, 1200)], "stock");
+
+    expect(metrics.priceChangePct).toBeUndefined();
+  });
+
+  it("returns undefined priceChangePct when previous close is zero", () => {
+    const metrics = computeFinMindMetrics(
+      [priceRow("2026-06-12", 0, 1000), priceRow("2026-06-13", 105, 1200)],
+      "stock"
+    );
+
+    expect(metrics.priceChangePct).toBeUndefined();
+  });
 });
