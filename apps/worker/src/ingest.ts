@@ -8,6 +8,7 @@ import {
   parseRssItems,
   scoreCandidates,
   type EventRecord,
+  type FinMindMetrics,
   type FinMindRow,
   type FinMindStockInfoRow,
   type MopsMaterialInfoRow,
@@ -117,7 +118,7 @@ export function expandSymbols(event: SourceEvent, classification = classifyEvent
       url: event.url,
       publishedAt: event.publishedAt,
       engagement: event.engagement,
-      tags: classification.tags,
+      tags: mergeTags(finMindDerivedTags(event.metrics), classification.tags),
       sentiment: classification.sentiment,
       reason: classification.reason,
       metrics: event.metrics
@@ -152,7 +153,7 @@ async function reclassifyStoredEvents(events: EventRecord[], options: Classifica
     const classification = await classifyWithFallback(event, options, useLlm);
     return {
       ...event,
-      tags: classification.tags,
+      tags: mergeTags(finMindDerivedTags(event.metrics), classification.tags),
       sentiment: classification.sentiment,
       reason: classification.reason
     };
@@ -188,6 +189,23 @@ function isStoredEventStillSupported(event: EventRecord, aliases: Record<string,
     return true;
   }
   return extractMentionedSymbols(event.title, aliases, validSymbols).includes(event.symbol);
+}
+
+function finMindDerivedTags(metrics?: FinMindMetrics): string[] {
+  if (!metrics) {
+    return [];
+  }
+  return [
+    ...(metrics.limitFlag === "limit_up" ? ["漲停"] : []),
+    ...(metrics.limitFlag === "limit_down" ? ["跌停"] : []),
+    ...(typeof metrics.volumeRatio === "number" && metrics.volumeRatio >= 2 ? ["爆量"] : []),
+    ...(metrics.isRecentHigh ? ["營收創高"] : []),
+    ...(typeof metrics.revenueYoYPct === "number" && metrics.revenueYoYPct >= 20 ? ["高成長"] : [])
+  ];
+}
+
+function mergeTags(derived: string[], base: string[]): string[] {
+  return [...new Set([...derived, ...base])].slice(0, 3);
 }
 
 function classifyEvent(title: string, source: SourceEvent["source"]): { sentiment: number; tags: string[]; reason: string } {

@@ -525,4 +525,52 @@ describe("runIngestion", () => {
     expect(priceEvent?.metrics?.volumeRatio).toBeTypeOf("number");
     expect(priceEvent?.engagement).toBe(0);
   });
+
+  it("derives deterministic tags from event.metrics, independent of title wording", async () => {
+    const repo = new MemoryRepository();
+    await repo.upsertUniverse([{
+      symbol: "2330",
+      name: "台積電",
+      market: "上市",
+      industry: "半導體業",
+      securityType: "stock",
+      updatedAt: "2026-05-26T03:00:00.000Z"
+    }]);
+    await repo.saveEvents([
+      {
+        id: "finmind:2330:price",
+        source: "finmind",
+        symbol: "2330",
+        title: "2330 台積電 價格摘要",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockPrice&data_id=2330",
+        publishedAt: "2026-05-27T05:00:00.000Z",
+        engagement: 0,
+        tags: [],
+        sentiment: 3,
+        reason: "finmind 事件訊號命中",
+        metrics: { priceChangePct: 10, volumeRatio: 5, limitFlag: "limit_up" }
+      },
+      {
+        id: "finmind:2330:revenue",
+        source: "finmind",
+        symbol: "2330",
+        title: "2330 台積電 月報摘要",
+        url: "https://finmindtrade.com/analysis/#/data/api?dataset=TaiwanStockMonthRevenue&data_id=2330",
+        publishedAt: "2026-05-10T00:00:00.000Z",
+        engagement: 0,
+        tags: [],
+        sentiment: 3,
+        reason: "finmind 事件訊號命中",
+        metrics: { revenueYoYPct: 38, isRecentHigh: true }
+      }
+    ]);
+
+    await recomputeCandidates(repo);
+
+    const events = await repo.listEventsForSymbol("2330");
+    const priceEvent = events.find((event) => event.url.includes("TaiwanStockPrice"));
+    const revenueEvent = events.find((event) => event.url.includes("TaiwanStockMonthRevenue"));
+    expect(priceEvent?.tags).toEqual(expect.arrayContaining(["漲停", "爆量"]));
+    expect(revenueEvent?.tags).toEqual(expect.arrayContaining(["營收創高", "高成長"]));
+  });
 });
