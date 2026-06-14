@@ -365,6 +365,68 @@ describe("scoreCandidates", () => {
       isRecentHigh: true
     });
   });
+
+  it("does not let raw FinMind volume dominate via engagement (engagement=0 summary)", () => {
+    // Both candidates have engagement 0 (FinMind summary contract). The large-cap with
+    // a flat derived signal must NOT outrank the small-cap with strong derived signal,
+    // proving raw volume no longer leaks into the score through engagementScore.
+    const largeCapQuiet = scoreCandidates(
+      [
+        {
+          id: "finmind-2330-quiet",
+          source: "finmind",
+          symbol: "2330",
+          title: "2330 台積電 收 1000 漲 +0.2% 量 1.0x",
+          url: "https://finmind.test/2330-quiet",
+          publishedAt: "2026-05-27T01:00:00.000Z",
+          engagement: 0,
+          tags: ["價格量能"],
+          sentiment: 3,
+          reason: "FinMind 衍生訊號",
+          metrics: { priceChangePct: 0.2, volumeRatio: 1.0 }
+        }
+      ],
+      { "2330": "台積電" }
+    );
+
+    expect(largeCapQuiet[0]?.scoreBreakdown?.derivedSignal).toBe(0.1);
+  });
+
+  it("ranks a high-YoY small-cap above a quiet high-volume large-cap", () => {
+    const events: EventRecord[] = [
+      {
+        id: "finmind-largecap",
+        source: "finmind",
+        symbol: "2317",
+        title: "2317 鴻海 收 200 漲 +0.3% 量 1.1x",
+        url: "https://finmind.test/2317",
+        publishedAt: "2026-05-27T01:00:00.000Z",
+        engagement: 0,
+        tags: ["價格量能"],
+        sentiment: 3,
+        reason: "FinMind 衍生訊號",
+        metrics: { priceChangePct: 0.3, volumeRatio: 1.1 }
+      },
+      {
+        id: "finmind-smallcap",
+        source: "finmind",
+        symbol: "3324",
+        title: "3324 雙鴻 2026/5 月營收 YoY +40% 近3月高",
+        url: "https://finmind.test/3324",
+        publishedAt: "2026-05-27T01:00:00.000Z",
+        engagement: 0,
+        tags: ["營收", "價格量能"],
+        sentiment: 4,
+        reason: "FinMind 衍生訊號",
+        metrics: { priceChangePct: 5.0, volumeRatio: 2.5, revenueYoYPct: 40, isRecentHigh: true }
+      }
+    ];
+
+    const candidates = scoreCandidates(events, { "2317": "鴻海", "3324": "雙鴻" });
+
+    expect(candidates[0]?.symbol).toBe("3324");
+    expect(candidates[0]?.score ?? 0).toBeGreaterThan(candidates[1]?.score ?? 0);
+  });
 });
 
 describe("validateLlmClassification", () => {
