@@ -243,6 +243,27 @@ describe("RadarTable", () => {
     expect(formatMetricBadges(undefined)).toEqual([]);
     expect(formatMetricBadges({})).toEqual([]);
   });
+
+  it("renders 衍生訊號 badges for candidates that carry FinMind metrics", () => {
+    const html = renderToString(<RadarTable candidates={[
+      candidate({
+        symbol: "2330",
+        metrics: { revenueYoYPct: 42.3, volumeRatio: 3.1, priceChangePct: 5.5, liquidityTier: "充足" }
+      })
+    ]} />);
+
+    expect(html).toContain("YoY +42.3%");
+    expect(html).toContain("量比 3.1x");
+    expect(html).toContain("漲跌 +5.5%");
+    expect(html).toContain("流動性 充足");
+  });
+
+  it("hides 衍生訊號 badges when a candidate has no metrics", () => {
+    const html = renderToString(<RadarTable candidates={[candidate({ symbol: "2330" })]} />);
+
+    expect(html).not.toContain("量比");
+    expect(html).not.toContain("流動性");
+  });
 });
 
 function candidate(overrides: Partial<Candidate>): Candidate {

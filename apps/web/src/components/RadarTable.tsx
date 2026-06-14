@@ -126,6 +126,13 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                       <strong>{candidate.score.toFixed(1)}</strong>
                     </div>
                     {candidate.confidenceScore !== undefined ? <small className="confidence-chip">{`信心 ${candidate.confidenceScore}`}</small> : null}
+                    {formatMetricBadges(candidate.metrics).length > 0 ? (
+                      <div className="metric-badges" aria-label={`${candidate.symbol} 衍生訊號`}>
+                        {formatMetricBadges(candidate.metrics).map((badge) => (
+                          <span key={badge.key} className={`metric-badge metric-${badge.key}`}>{badge.label}</span>
+                        ))}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <div className="event-cell">
