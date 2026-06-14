@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { normalizeFinMindRows, normalizeFinMindStockInfoRows, normalizeMopsMaterialInfoRows, normalizeTwseNewsRows, parsePttTitles, parseRssItems } from "../src/parsers";
+import type { EventRecord, FinMindMetrics, SourceEvent } from "../src/types";
+
+const __metricsContract: { ev: SourceEvent["metrics"]; rec: EventRecord["metrics"] } = {
+  ev: undefined as FinMindMetrics | undefined,
+  rec: undefined as FinMindMetrics | undefined
+};
+void __metricsContract;
 
 describe("parsePttTitles", () => {
   it("extracts title, url, push count, published time, and mentioned symbols", () => {

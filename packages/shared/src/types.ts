@@ -8,6 +8,7 @@ export interface SourceEvent {
   publishedAt: string;
   engagement: number;
   symbols: string[];
+  metrics?: FinMindMetrics;
 }
 
 export interface EventRecord {
@@ -22,6 +23,7 @@ export interface EventRecord {
   sentiment: number;
   reason: string;
   confidenceScore?: number;
+  metrics?: FinMindMetrics;
 }
 
 export interface ScoreBreakdown {
