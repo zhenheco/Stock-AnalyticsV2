@@ -32,6 +32,7 @@ export interface ScoreBreakdown {
   freshness: number;
   crossSourceBoost: number;
   watchlistBoost: number;
+  derivedSignal: number;
 }
 
 export interface Candidate {

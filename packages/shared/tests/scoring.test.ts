@@ -205,6 +205,29 @@ describe("scoreCandidates", () => {
     expect(candidates[0]?.confidenceScore).toBeGreaterThanOrEqual(70);
     expect(candidates[0]?.reason).toContain("官方");
   });
+
+  it("exposes a derivedSignal component in the score breakdown", () => {
+    const candidates = scoreCandidates(
+      [
+        {
+          id: "finmind-price-2330",
+          source: "finmind",
+          symbol: "2330",
+          title: "2330 台積電 收 1000 漲 +6.2% 量 3.1x 爆量",
+          url: "https://finmind.test/2330",
+          publishedAt: "2026-05-27T01:00:00.000Z",
+          engagement: 0,
+          tags: ["價格量能"],
+          sentiment: 3,
+          reason: "FinMind 衍生訊號",
+          metrics: { priceChangePct: 6.2, volumeRatio: 3.1 }
+        }
+      ],
+      { "2330": "台積電" }
+    );
+
+    expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBeGreaterThan(0);
+  });
 });
 
 describe("validateLlmClassification", () => {

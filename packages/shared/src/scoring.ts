@@ -40,7 +40,8 @@ function toCandidate(symbol: string, events: EventRecord[], name: string, option
     sourceConfidence,
     freshness,
     crossSourceBoost,
-    watchlistBoost
+    watchlistBoost,
+    derivedSignal: 0
   };
   const rawScore = events.every((event) => event.tags.includes("公告"))
     ? 0
