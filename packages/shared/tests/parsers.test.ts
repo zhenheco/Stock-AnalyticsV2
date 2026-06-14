@@ -329,6 +329,25 @@ describe("normalizeFinMindRows", () => {
     expect(event.metrics?.limitFlag).toBeUndefined();
   });
 
+  it("labels a negative price summary as 跌 (not 漲) and tags 跌停", () => {
+    const securityTypes = new Map<string, import("../src/types").SecurityType>([["2330", "stock"]]);
+    const priceRows = [
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-26", close: 1000, Trading_Volume: 3000 },
+      { stock_id: "2330", stock_name: "台積電", date: "2026-05-27", close: 900, Trading_Volume: 3000 }
+    ];
+
+    const events = normalizeFinMindRows(priceRows, "2026-05-27T05:00:00.000Z", securityTypes);
+    const event = events[0];
+    expect(event).toBeDefined();
+    if (!event) {
+      throw new Error("expected price summary event");
+    }
+    expect(event.title).toContain("跌 -10.0%");
+    expect(event.title).not.toContain("漲 -");
+    expect(event.title).toContain("跌停");
+    expect(event.metrics?.limitFlag).toBe("limit_down");
+  });
+
   it("emits a limit-up summary title only for stock security type", () => {
     const stockTypes = new Map<string, import("../src/types").SecurityType>([["2330", "stock"]]);
     const etfTypes = new Map<string, import("../src/types").SecurityType>([["0050", "etf"]]);

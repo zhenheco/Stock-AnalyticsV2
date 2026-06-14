@@ -224,7 +224,7 @@ function priceSummaryTitle(symbol: string, name: string, close: number | undefin
   const closeText = finiteNumber(close) ? formatNumber(close) : "N/A";
   const parts = [`${symbol} ${name} 收 ${closeText}`];
   if (typeof metrics.priceChangePct === "number") {
-    parts.push(`漲 ${signedPct(metrics.priceChangePct)}`);
+    parts.push(`${metrics.priceChangePct >= 0 ? "漲" : "跌"} ${signedPct(metrics.priceChangePct)}`);
   }
   if (typeof metrics.volumeRatio === "number") {
     parts.push(`量 ${metrics.volumeRatio.toFixed(1)}x`);
