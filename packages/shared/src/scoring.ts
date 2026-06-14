@@ -1,4 +1,4 @@
-import type { Candidate, EventRecord, ScoreBreakdown, SourceKind } from "./types";
+import type { Candidate, EventRecord, FinMindMetrics, ScoreBreakdown, SourceKind } from "./types";
 
 const SOURCE_WEIGHTS: Record<SourceKind, number> = {
   ptt: 1,
@@ -35,17 +35,19 @@ function toCandidate(symbol: string, events: EventRecord[], name: string, option
   const freshness = round(freshnessWeight(latest?.publishedAt));
   const crossSourceBoost = round(Math.max(0, sources.length - 1) * 1.2);
   const watchlistBoost = options.watchlistSymbols?.has(symbol) ? 0.5 : 0;
+  const aggregatedMetrics = aggregateMetrics(events);
+  const derivedSignal = derivedSignalScore(aggregatedMetrics);
   const scoreBreakdown: ScoreBreakdown = {
     eventStrength,
     sourceConfidence,
     freshness,
     crossSourceBoost,
     watchlistBoost,
-    derivedSignal: 0
+    derivedSignal
   };
   const rawScore = events.every((event) => event.tags.includes("公告"))
     ? 0
-    : eventStrength + sourceConfidence * 1.8 + engagementScore + sentimentScore + freshness + crossSourceBoost + watchlistBoost;
+    : eventStrength + sourceConfidence * 1.8 + engagementScore + sentimentScore + freshness + crossSourceBoost + watchlistBoost + derivedSignal;
   const confidenceScore = confidenceFrom(events, sources);
 
   return {
@@ -61,7 +63,8 @@ function toCandidate(symbol: string, events: EventRecord[], name: string, option
     tags,
     reason: candidateReason(events, latest?.reason),
     scoreBreakdown,
-    confidenceScore
+    confidenceScore,
+    metrics: aggregatedMetrics
   };
 }
 
@@ -98,6 +101,42 @@ function average(items: number[]): number {
 
 function round(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+const DERIVED_SIGNAL_CONFIG = {
+  priceChangeDivisor: 4,
+  priceChangeCap: 3,
+  volumeRatioCap: 2,
+  limitFlagBonus: 1,
+  revenueYoYDivisor: 15,
+  revenueYoYCap: 3,
+  recentHighBonus: 0.5
+} as const;
+
+function aggregateMetrics(events: EventRecord[]): FinMindMetrics | undefined {
+  const withMetrics = events.filter((event): event is EventRecord & { metrics: FinMindMetrics } => event.metrics !== undefined);
+  if (withMetrics.length === 0) {
+    return undefined;
+  }
+  return withMetrics[0]?.metrics;
+}
+
+function derivedSignalScore(metrics: FinMindMetrics | undefined): number {
+  if (!metrics) {
+    return 0;
+  }
+  const priceComponent = metrics.priceChangePct === undefined
+    ? 0
+    : Math.min(DERIVED_SIGNAL_CONFIG.priceChangeCap, Math.abs(metrics.priceChangePct) / DERIVED_SIGNAL_CONFIG.priceChangeDivisor);
+  const volumeComponent = metrics.volumeRatio === undefined
+    ? 0
+    : Math.min(DERIVED_SIGNAL_CONFIG.volumeRatioCap, Math.max(0, metrics.volumeRatio - 1));
+  const limitComponent = metrics.limitFlag ? DERIVED_SIGNAL_CONFIG.limitFlagBonus : 0;
+  const revenueComponent = metrics.revenueYoYPct === undefined
+    ? 0
+    : Math.min(DERIVED_SIGNAL_CONFIG.revenueYoYCap, Math.abs(metrics.revenueYoYPct) / DERIVED_SIGNAL_CONFIG.revenueYoYDivisor);
+  const recentHighComponent = metrics.isRecentHigh ? DERIVED_SIGNAL_CONFIG.recentHighBonus : 0;
+  return round(priceComponent + volumeComponent + limitComponent + revenueComponent + recentHighComponent);
 }
 
 function eventWeight(event: EventRecord): number {

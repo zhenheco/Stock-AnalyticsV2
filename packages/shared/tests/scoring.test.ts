@@ -228,6 +228,87 @@ describe("scoreCandidates", () => {
 
     expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBeGreaterThan(0);
   });
+
+  it("computes derivedSignal from aggregated metrics with the rescaled formula", () => {
+    // priceChangePct 6.2 -> min(3, 6.2/4)=1.55
+    // volumeRatio 3.1 -> min(2, max(0, 3.1-1))=2
+    // limitFlag none -> 0
+    // revenueYoYPct 40 -> min(3, 40/15)=2.6667
+    // isRecentHigh true -> 0.5
+    // sum = 1.55 + 2 + 0 + 2.6667 + 0.5 = 6.7167 -> round1 = 6.7
+    const candidates = scoreCandidates(
+      [
+        {
+          id: "finmind-summary-3324",
+          source: "finmind",
+          symbol: "3324",
+          title: "3324 雙鴻 收 500 漲 +6.2% 量 3.1x 爆量",
+          url: "https://finmind.test/3324",
+          publishedAt: "2026-05-27T01:00:00.000Z",
+          engagement: 0,
+          tags: ["價格量能", "營收"],
+          sentiment: 3,
+          reason: "FinMind 衍生訊號",
+          metrics: {
+            priceChangePct: 6.2,
+            volumeRatio: 3.1,
+            revenueYoYPct: 40,
+            isRecentHigh: true
+          }
+        }
+      ],
+      { "3324": "雙鴻" }
+    );
+
+    expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBe(6.7);
+  });
+
+  it("adds derivedSignal into rawScore so a strong derived signal lifts the score", () => {
+    const base = {
+      id: "finmind-quiet-2002",
+      source: "finmind" as const,
+      symbol: "2002",
+      title: "2002 中鋼 收 30 漲 +0.1% 量 1.0x",
+      url: "https://finmind.test/2002",
+      publishedAt: "2026-05-27T01:00:00.000Z",
+      engagement: 0,
+      tags: ["價格量能"],
+      sentiment: 3,
+      reason: "FinMind 衍生訊號"
+    };
+    const quiet = scoreCandidates([{ ...base, metrics: { priceChangePct: 0.1, volumeRatio: 1.0 } }], { "2002": "中鋼" });
+    const strong = scoreCandidates(
+      [{ ...base, metrics: { priceChangePct: 9.8, volumeRatio: 4, limitFlag: "limit_up", revenueYoYPct: 60, isRecentHigh: true } }],
+      { "2002": "中鋼" }
+    );
+
+    expect(strong[0]?.score ?? 0).toBeGreaterThan(quiet[0]?.score ?? 0);
+  });
+
+  it("keeps derivedSignal in the same magnitude band as other components (does not overwhelm)", () => {
+    // theoretical max: 3 + 2 + 1 + 3 + 0.5 = 9.5
+    const candidates = scoreCandidates(
+      [
+        {
+          id: "finmind-max-1234",
+          source: "finmind",
+          symbol: "1234",
+          title: "1234 漲停爆量高成長",
+          url: "https://finmind.test/1234",
+          publishedAt: "2026-05-27T01:00:00.000Z",
+          engagement: 0,
+          tags: ["價格量能"],
+          sentiment: 3,
+          reason: "FinMind 衍生訊號",
+          metrics: { priceChangePct: 50, volumeRatio: 10, limitFlag: "limit_up", revenueYoYPct: 100, isRecentHigh: true }
+        }
+      ],
+      { "1234": "強訊號" }
+    );
+
+    expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBeLessThanOrEqual(9.5);
+    expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBeGreaterThanOrEqual(3);
+  });
 });
 
 describe("validateLlmClassification", () => {
