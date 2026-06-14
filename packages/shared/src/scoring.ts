@@ -118,7 +118,30 @@ function aggregateMetrics(events: EventRecord[]): FinMindMetrics | undefined {
   if (withMetrics.length === 0) {
     return undefined;
   }
-  return withMetrics[0]?.metrics;
+
+  const strongestPrice = withMetrics
+    .filter((event) => event.metrics.priceChangePct !== undefined)
+    .reduce<EventRecord & { metrics: FinMindMetrics } | undefined>((best, event) =>
+      !best || Math.abs(event.metrics.priceChangePct ?? 0) > Math.abs(best.metrics.priceChangePct ?? 0) ? event : best, undefined);
+
+  const latestRevenue = [...withMetrics]
+    .filter((event) => event.metrics.revenueYoYPct !== undefined || event.metrics.revenueMoMPct !== undefined)
+    .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))[0];
+
+  return {
+    priceChangePct: strongestPrice?.metrics.priceChangePct,
+    volumeRatio: strongestPrice?.metrics.volumeRatio,
+    limitFlag: withMetrics.find((event) => event.metrics.limitFlag !== undefined)?.metrics.limitFlag,
+    avgDailyTurnoverTwd: firstDefined(withMetrics.map((event) => event.metrics.avgDailyTurnoverTwd)),
+    liquidityTier: firstDefined(withMetrics.map((event) => event.metrics.liquidityTier)),
+    revenueYoYPct: latestRevenue?.metrics.revenueYoYPct,
+    revenueMoMPct: latestRevenue?.metrics.revenueMoMPct,
+    isRecentHigh: withMetrics.some((event) => event.metrics.isRecentHigh === true) ? true : undefined
+  };
+}
+
+function firstDefined<T>(values: Array<T | undefined>): T | undefined {
+  return values.find((value) => value !== undefined);
 }
 
 function derivedSignalScore(metrics: FinMindMetrics | undefined): number {

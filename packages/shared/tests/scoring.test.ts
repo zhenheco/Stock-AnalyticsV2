@@ -309,6 +309,62 @@ describe("scoreCandidates", () => {
     expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBeLessThanOrEqual(9.5);
     expect(candidates[0]?.scoreBreakdown?.derivedSignal).toBeGreaterThanOrEqual(3);
   });
+
+  it("aggregates the strongest derived metrics across a symbol's events", () => {
+    const candidates = scoreCandidates(
+      [
+        {
+          id: "finmind-price-6505",
+          source: "finmind",
+          symbol: "6505",
+          title: "6505 台塑化 收 90 漲 +2.0% 量 1.5x",
+          url: "https://finmind.test/6505-price-a",
+          publishedAt: "2026-05-26T01:00:00.000Z",
+          engagement: 0,
+          tags: ["價格量能"],
+          sentiment: 3,
+          reason: "FinMind 價格摘要",
+          metrics: { priceChangePct: 2.0, volumeRatio: 1.5 }
+        },
+        {
+          id: "finmind-price-6505-b",
+          source: "finmind",
+          symbol: "6505",
+          title: "6505 台塑化 收 80 跌 -8.5% 量 3.0x 爆量",
+          url: "https://finmind.test/6505-price-b",
+          publishedAt: "2026-05-27T01:00:00.000Z",
+          engagement: 0,
+          tags: ["價格量能"],
+          sentiment: 2,
+          reason: "FinMind 價格摘要",
+          metrics: { priceChangePct: -8.5, volumeRatio: 3.0, limitFlag: "limit_down" }
+        },
+        {
+          id: "finmind-revenue-6505",
+          source: "finmind",
+          symbol: "6505",
+          title: "6505 台塑化 2026/5 月營收 YoY +25% 近3月高",
+          url: "https://finmind.test/6505-revenue",
+          publishedAt: "2026-05-27T02:00:00.000Z",
+          engagement: 0,
+          tags: ["營收"],
+          sentiment: 4,
+          reason: "FinMind 營收摘要",
+          metrics: { revenueYoYPct: 25, revenueMoMPct: 5, isRecentHigh: true }
+        }
+      ],
+      { "6505": "台塑化" }
+    );
+
+    expect(candidates[0]?.metrics).toMatchObject({
+      priceChangePct: -8.5,
+      volumeRatio: 3.0,
+      limitFlag: "limit_down",
+      revenueYoYPct: 25,
+      revenueMoMPct: 5,
+      isRecentHigh: true
+    });
+  });
 });
 
 describe("validateLlmClassification", () => {
