@@ -516,6 +516,36 @@ describe("fetchLiveSources", () => {
       expect.objectContaining({ source: "finmind", status: "ok", itemCount: 8 })
     ]));
   });
+
+  it("widens the FinMind price window to now-45 days while keeping chip windows at today", async () => {
+    const startDatesByDataset: Record<string, string[]> = {};
+    await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        FINMIND_TOKEN: "token",
+        FINMIND_SYMBOLS: "2330",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (!url.includes("finmindtrade")) {
+          return textResponse("");
+        }
+        const parsed = new URL(url);
+        const dataset = parsed.searchParams.get("dataset") ?? "";
+        const startDate = parsed.searchParams.get("start_date");
+        if (startDate) {
+          startDatesByDataset[dataset] = [...(startDatesByDataset[dataset] ?? []), startDate];
+        }
+        return jsonResponse({ data: [] });
+      }
+    });
+
+    expect(startDatesByDataset["TaiwanStockPrice"]).toEqual(["2026-04-12"]);
+    expect(startDatesByDataset["TaiwanStockInstitutionalInvestorsBuySell"]).toEqual(["2026-05-27"]);
+    expect(startDatesByDataset["TaiwanStockMarginPurchaseShortSale"]).toEqual(["2026-05-27"]);
+  });
 });
 
 function jsonResponse(body: unknown): Response {

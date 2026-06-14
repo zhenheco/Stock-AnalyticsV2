@@ -198,7 +198,7 @@ async function fetchFinMindSources(
 
   const [stockInfoRows, priceRows, institutionalRows, marginRows, monthlyRevenueRows] = await Promise.all([
     fetchFinMindStockInfoRows(fetcher, env.FINMIND_TOKEN),
-    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockPrice"),
+    fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockPrice", priceStartDate(now)),
     fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockInstitutionalInvestorsBuySell"),
     fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMarginPurchaseShortSale"),
     fetchFinMindRowsByDataset(fetcher, env.FINMIND_TOKEN, symbols, now, "TaiwanStockMonthRevenue", revenueStartDate(now))
@@ -426,6 +426,15 @@ function revenueStartDate(now: string): string {
     return now.slice(0, 10);
   }
   parsed.setUTCDate(parsed.getUTCDate() - 75);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function priceStartDate(now: string): string {
+  const parsed = new Date(now);
+  if (Number.isNaN(parsed.getTime())) {
+    return now.slice(0, 10);
+  }
+  parsed.setUTCDate(parsed.getUTCDate() - 45);
   return parsed.toISOString().slice(0, 10);
 }
 
