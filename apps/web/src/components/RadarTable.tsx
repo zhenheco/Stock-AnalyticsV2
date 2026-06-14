@@ -36,6 +36,7 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
   }
 
   const visibleCandidates = filterAndSortCandidates(candidates, filters, watchlistSymbols);
+  const maxCandidateScore = Math.max(0, ...visibleCandidates.map((candidate) => candidate.score));
   const sources = unique(candidates.flatMap((candidate) => candidate.sources));
   const tags = unique(candidates.flatMap((candidate) => candidate.tags)).sort((left, right) => left.localeCompare(right, "zh-Hant"));
 
@@ -122,7 +123,7 @@ export function RadarTable({ candidates, filters = DEFAULT_FILTERS, onAddToWatch
                   </td>
                   <td>
                     <div className="score-meter" aria-label={`score ${candidate.score}`}>
-                      <span style={{ width: `${Math.min(100, candidate.score * 10)}%` }} />
+                      <span style={{ width: `${scoreMeterWidth(candidate.score, maxCandidateScore)}%` }} />
                       <strong>{candidate.score.toFixed(1)}</strong>
                     </div>
                     {candidate.confidenceScore !== undefined ? <small className="confidence-chip">{`信心 ${candidate.confidenceScore}`}</small> : null}
@@ -225,6 +226,13 @@ export function formatMetricBadges(metrics: FinMindMetrics | undefined): MetricB
     badges.push({ key: "liquidity", label: `流動性 ${metrics.liquidityTier}` });
   }
   return badges;
+}
+
+export function scoreMeterWidth(score: number, maxCandidateScore: number): number {
+  if (maxCandidateScore <= 0) {
+    return 0;
+  }
+  return Math.round((score / maxCandidateScore) * 100);
 }
 
 const SOURCE_LABELS: Record<SourceKind, string> = {

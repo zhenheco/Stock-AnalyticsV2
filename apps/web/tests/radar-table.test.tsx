@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { filterAndSortCandidates, formatMetricBadges, RadarTable, sourceMixSegments, type RadarFilters } from "../src/components/RadarTable";
+import { filterAndSortCandidates, formatMetricBadges, RadarTable, scoreMeterWidth, sourceMixSegments, type RadarFilters } from "../src/components/RadarTable";
 import type { Candidate } from "@stock-analytics/shared";
 
 describe("RadarTable", () => {
@@ -263,6 +263,27 @@ describe("RadarTable", () => {
 
     expect(html).not.toContain("量比");
     expect(html).not.toContain("流動性");
+  });
+
+  it("rebases the score meter to the relative max so it stays discriminating", () => {
+    expect(scoreMeterWidth(12, 12)).toBe(100);
+    expect(scoreMeterWidth(6, 12)).toBe(50);
+    expect(scoreMeterWidth(3, 12)).toBe(25);
+  });
+
+  it("guards the score meter against a zero or missing max", () => {
+    expect(scoreMeterWidth(0, 0)).toBe(0);
+    expect(scoreMeterWidth(5, 0)).toBe(0);
+  });
+
+  it("does not clamp every high-score candidate meter to 100%", () => {
+    const html = renderToString(<RadarTable candidates={[
+      candidate({ symbol: "2330", score: 14 }),
+      candidate({ symbol: "2317", score: 7 })
+    ]} />);
+
+    expect(html).toContain("width:100%");
+    expect(html).toContain("width:50%");
   });
 });
 
