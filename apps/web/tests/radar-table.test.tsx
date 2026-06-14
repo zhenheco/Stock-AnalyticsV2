@@ -75,7 +75,8 @@ describe("RadarTable", () => {
           sourceConfidence: 2.4,
           freshness: 1.5,
           crossSourceBoost: 1.2,
-          watchlistBoost: 0.5
+          watchlistBoost: 0.5,
+          derivedSignal: 4.3
         }
       })
     ]} />);
@@ -84,6 +85,7 @@ describe("RadarTable", () => {
     expect(html).toContain("事件強度 3.2");
     expect(html).toContain("來源可信 2.4");
     expect(html).toContain("多源共振 1.2");
+    expect(html).toContain("衍生訊號 4.3");
   });
 
   it("builds source mix segments from candidate counts", () => {
