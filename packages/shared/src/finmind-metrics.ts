@@ -2,16 +2,18 @@ import type { FinMindMetrics, FinMindRow, SecurityType } from "./types";
 
 const MAX_VOLUME_WINDOW = 20;
 const MIN_VOLUME_PRIOR = 5;
+const LIMIT_THRESHOLD_PCT = 9.5;
 
 export function computeFinMindMetrics(rows: FinMindRow[], securityType: SecurityType): FinMindMetrics {
-  void securityType;
   const priceRows = sortedPriceRows(rows);
   const priceChangePct = computePriceChangePct(priceRows);
   const volumeRatio = computeVolumeRatio(priceRows);
+  const limitFlag = computeLimitFlag(priceChangePct, securityType);
 
   return {
     ...(priceChangePct === undefined ? {} : { priceChangePct }),
-    ...(volumeRatio === undefined ? {} : { volumeRatio })
+    ...(volumeRatio === undefined ? {} : { volumeRatio }),
+    ...(limitFlag === undefined ? {} : { limitFlag })
   };
 }
 
@@ -58,6 +60,22 @@ function computeVolumeRatio(priceRows: FinMindRow[]): number | undefined {
     return undefined;
   }
   return round1(todayVolume / meanVolume);
+}
+
+function computeLimitFlag(
+  priceChangePct: number | undefined,
+  securityType: SecurityType
+): "limit_up" | "limit_down" | undefined {
+  if (securityType !== "stock" || priceChangePct === undefined) {
+    return undefined;
+  }
+  if (priceChangePct >= LIMIT_THRESHOLD_PCT) {
+    return "limit_up";
+  }
+  if (priceChangePct <= -LIMIT_THRESHOLD_PCT) {
+    return "limit_down";
+  }
+  return undefined;
 }
 
 function mean(values: number[]): number {

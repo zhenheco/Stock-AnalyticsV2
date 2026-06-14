@@ -81,4 +81,40 @@ describe("computeFinMindMetrics", () => {
 
     expect(metrics.volumeRatio).toBeUndefined();
   });
+
+  it("flags limit_up for a stock with priceChangePct >= 9.5", () => {
+    const metrics = computeFinMindMetrics(
+      [priceRow("2026-06-12", 100, 1000), priceRow("2026-06-13", 110, 1200)],
+      "stock"
+    );
+
+    expect(metrics.limitFlag).toBe("limit_up");
+  });
+
+  it("flags limit_down for a stock with priceChangePct <= -9.5", () => {
+    const metrics = computeFinMindMetrics(
+      [priceRow("2026-06-12", 100, 1000), priceRow("2026-06-13", 90, 1200)],
+      "stock"
+    );
+
+    expect(metrics.limitFlag).toBe("limit_down");
+  });
+
+  it("never flags a limit for ETF/ETN/index symbols", () => {
+    const rows = [priceRow("2026-06-12", 100, 1000), priceRow("2026-06-13", 110, 1200)];
+
+    expect(computeFinMindMetrics(rows, "etf").limitFlag).toBeUndefined();
+    expect(computeFinMindMetrics(rows, "etn").limitFlag).toBeUndefined();
+    expect(computeFinMindMetrics(rows, "index").limitFlag).toBeUndefined();
+    expect(computeFinMindMetrics(rows, "unknown").limitFlag).toBeUndefined();
+  });
+
+  it("returns undefined limitFlag for a stock within normal range", () => {
+    const metrics = computeFinMindMetrics(
+      [priceRow("2026-06-12", 100, 1000), priceRow("2026-06-13", 105, 1200)],
+      "stock"
+    );
+
+    expect(metrics.limitFlag).toBeUndefined();
+  });
 });
