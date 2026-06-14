@@ -28,8 +28,8 @@ export class D1Repository implements Repository {
 
     await batchStatements(this.db, candidates.map((candidate) => this.db.prepare(`
       INSERT OR REPLACE INTO candidates
-        (symbol, name, score, event_count, source_count, source_counts_json, latest_title, latest_at, sources_json, tags_json, reason, score_breakdown_json, confidence_score)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (symbol, name, score, event_count, source_count, source_counts_json, latest_title, latest_at, sources_json, tags_json, reason, score_breakdown_json, confidence_score, metrics_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       candidate.symbol,
       candidate.name,
@@ -43,7 +43,8 @@ export class D1Repository implements Repository {
       JSON.stringify(candidate.tags),
       candidate.reason,
       JSON.stringify(candidate.scoreBreakdown ?? {}),
-      candidate.confidenceScore ?? 0
+      candidate.confidenceScore ?? 0,
+      candidate.metrics ? JSON.stringify(candidate.metrics) : null
     )));
   }
 
@@ -227,6 +228,7 @@ interface CandidateRow {
   reason: string;
   score_breakdown_json?: string;
   confidence_score?: number;
+  metrics_json?: string | null;
 }
 
 interface EventRow {
@@ -284,6 +286,7 @@ interface DailySnapshotRow {
 }
 
 function rowToCandidate(row: CandidateRow): Candidate {
+  const metrics = parseFinMindMetrics(row.metrics_json);
   return {
     symbol: row.symbol,
     name: row.name,
@@ -297,7 +300,8 @@ function rowToCandidate(row: CandidateRow): Candidate {
     tags: JSON.parse(row.tags_json) as string[],
     reason: row.reason,
     scoreBreakdown: parseScoreBreakdown(row.score_breakdown_json),
-    confidenceScore: row.confidence_score ?? undefined
+    confidenceScore: row.confidence_score ?? undefined,
+    ...(metrics ? { metrics } : {})
   };
 }
 

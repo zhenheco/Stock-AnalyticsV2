@@ -103,6 +103,53 @@ describe("D1Repository", () => {
     expect(loaded).toMatchObject({ id: "legacy", symbol: "2317" });
     expect(loaded.metrics).toBeUndefined();
   });
+
+  it("round-trips finmind metrics on candidates", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    const metrics: FinMindMetrics = { revenueYoYPct: 40, volumeRatio: 3.2, liquidityTier: "偏低" };
+
+    await repo.saveCandidates([{ ...candidate("3035", "智原"), metrics }]);
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "3035", metrics })
+    ]);
+  });
+
+  it("keeps candidate metrics across a simulated re-score round-trip", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    const metrics: FinMindMetrics = { priceChangePct: 9.8, limitFlag: "limit_up", volumeRatio: 4.1 };
+
+    await repo.saveCandidates([{ ...candidate("2454", "聯發科"), metrics }]);
+    const reread = await repo.listCandidates();
+    await repo.saveCandidates(reread);
+
+    await expect(repo.listCandidates()).resolves.toEqual([
+      expect.objectContaining({ symbol: "2454", metrics })
+    ]);
+  });
+
+  it("loads legacy candidate rows without a metrics_json column", async () => {
+    const db = new FakeD1Database();
+    const repo = new D1Repository(db);
+    db.candidates.set("2317", {
+      symbol: "2317",
+      name: "鴻海",
+      score: 4,
+      event_count: 2,
+      source_count: 1,
+      latest_title: "鴻海 event",
+      latest_at: "2026-05-27T00:00:00.000Z",
+      sources_json: "[\"ptt\"]",
+      tags_json: "[\"討論熱度\"]",
+      reason: "ptt 事件訊號命中"
+    });
+
+    const [loaded] = await repo.listCandidates();
+    expect(loaded).toMatchObject({ symbol: "2317", name: "鴻海" });
+    expect(loaded.metrics).toBeUndefined();
+  });
 });
 
 function candidate(symbol: string, name: string): Candidate {
@@ -205,7 +252,10 @@ class FakeD1PreparedStatement {
         latestAt,
         sourcesJson,
         tagsJson,
-        reason
+        reason,
+        scoreBreakdownJson,
+        confidenceScore,
+        metricsJson
       ] = this.values;
       this.db.candidates.set(String(symbol), {
         symbol,
@@ -218,7 +268,10 @@ class FakeD1PreparedStatement {
         latest_at: latestAt,
         sources_json: sourcesJson,
         tags_json: tagsJson,
-        reason
+        reason,
+        score_breakdown_json: scoreBreakdownJson,
+        confidence_score: confidenceScore,
+        metrics_json: metricsJson
       });
     }
     if (this.query.includes("INSERT OR REPLACE INTO events")) {
