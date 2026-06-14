@@ -48,6 +48,8 @@ const DEFAULT_MOPS_MATERIAL_URL = "https://mops.twse.com.tw/mops/web/t05sr01_1";
 const DEFAULT_PTT_STOCK_URL = "https://www.ptt.cc/bbs/Stock/index.html";
 const DEFAULT_RSS_FEED_URL = "https://tw.stock.yahoo.com/rss?category=news";
 const DEFAULT_FETCH_ATTEMPTS = 2;
+const PRICE_SERIES_LIMIT = 25;
+const REVENUE_SERIES_LIMIT = 14;
 
 export async function fetchLiveSources(input: FetchLiveSourcesInput): Promise<LiveSourceResult> {
   const fetcher = input.fetcher ?? fetch;
@@ -252,6 +254,12 @@ async function fetchFinMindRowsByDataset(
     return [];
   }
 
+  const seriesLimit = dataset === "TaiwanStockPrice"
+    ? PRICE_SERIES_LIMIT
+    : dataset === "TaiwanStockMonthRevenue"
+      ? REVENUE_SERIES_LIMIT
+      : undefined;
+
   return Promise.all(symbols.map(async (symbol) => {
     const url = new URL(FINMIND_ENDPOINT);
     url.searchParams.set("dataset", dataset);
@@ -265,11 +273,21 @@ async function fetchFinMindRowsByDataset(
       return [];
     }
     const body = await readJson<FinMindResponse>(response);
-    return (body.data ?? []).map((row) => ({
+    const namedRows = (body.data ?? []).map((row) => ({
       ...row,
       stock_id: row.stock_id ?? symbol
     }));
+    return seriesLimit === undefined ? namedRows : truncateSeriesByDate(namedRows, seriesLimit);
   }));
+}
+
+function truncateSeriesByDate(rows: FinMindRow[], limit: number): FinMindRow[] {
+  if (rows.length <= limit) {
+    return rows;
+  }
+  return [...rows]
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+    .slice(0, limit);
 }
 
 async function fetchTextSource(

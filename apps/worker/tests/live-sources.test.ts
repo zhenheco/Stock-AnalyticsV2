@@ -574,6 +574,60 @@ describe("fetchLiveSources", () => {
 
     expect(revenueStartDates).toEqual(["2025-03-23"]);
   });
+
+  it("truncates each symbol's price series to the newest 25 rows and revenue to the newest 14", async () => {
+    const priceRows = Array.from({ length: 30 }, (_, index) => ({
+      stock_id: "2330",
+      stock_name: "台積電",
+      date: `2026-04-${String(index + 1).padStart(2, "0")}`,
+      close: 900 + index,
+      Trading_Volume: 1000 + index
+    }));
+    const revenueRows = Array.from({ length: 16 }, (_, index) => ({
+      stock_id: "2330",
+      date: `2025-${String(index + 1).padStart(2, "0")}-01`,
+      revenue: 200000000000 + index,
+      revenue_month: index + 1,
+      revenue_year: 2025
+    }));
+
+    const result = await fetchLiveSources({
+      now: "2026-05-27T05:00:00.000Z",
+      env: {
+        FINMIND_TOKEN: "token",
+        FINMIND_SYMBOLS: "2330",
+        RSS_FEED_URL: "https://rss.test/feed.xml",
+        PTT_STOCK_URL: "https://ptt.test/bbs/Stock/index.html"
+      },
+      fetcher: async (input) => {
+        const url = String(input);
+        if (url.includes("TaiwanStockPrice")) {
+          return jsonResponse({ data: priceRows });
+        }
+        if (url.includes("TaiwanStockMonthRevenue")) {
+          return jsonResponse({ data: revenueRows });
+        }
+        if (!url.includes("finmindtrade")) {
+          return textResponse("");
+        }
+        return jsonResponse({ data: [] });
+      }
+    });
+
+    const rows = result.sources.finmindRows ?? [];
+    const prices = rows.filter((row) => row.close !== undefined);
+    const revenues = rows.filter((row) => row.revenue !== undefined);
+
+    expect(prices).toHaveLength(25);
+    expect(prices[0]?.date).toBe("2026-04-30");
+    expect(prices.some((row) => row.date === "2026-04-05")).toBe(false);
+    expect(prices.some((row) => row.date === "2026-04-06")).toBe(true);
+
+    expect(revenues).toHaveLength(14);
+    expect(revenues[0]?.date).toBe("2025-16-01");
+    expect(revenues.some((row) => row.date === "2025-02-01")).toBe(false);
+    expect(revenues.some((row) => row.date === "2025-03-01")).toBe(true);
+  });
 });
 
 function jsonResponse(body: unknown): Response {
