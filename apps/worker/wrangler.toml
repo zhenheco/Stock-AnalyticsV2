@@ -1,6 +1,8 @@
 name = "stock-analytics-v2-worker"
 main = "src/index.ts"
 compatibility_date = "2026-05-27"
+compatibility_flags = ["nodejs_als"]
+upload_source_maps = true
 
 [triggers]
 crons = ["0 * * * *"]
@@ -16,6 +18,12 @@ PTT_STOCK_PAGES = "3"
 LLM_CLASSIFIER_ENABLED = "true"
 LLM_CLASSIFIER_MODEL = "@cf/meta/llama-3.1-8b-instruct"
 LLM_CLASSIFIER_LIMIT = "8"
+SENTRY_ENVIRONMENT = "production"
+SENTRY_TRACES_SAMPLE_RATE = "0.1"
+
+# Secrets (set via platform secret store):
+# SENTRY_DSN (wrangler secret put SENTRY_DSN)
+# SENTRY_RELEASE is supplied by pnpm deploy:sentry
 
 [ai]
 binding = "AI"

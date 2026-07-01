@@ -36,6 +36,10 @@ export interface WorkerEnv {
   LLM_CLASSIFIER_ENABLED?: string;
   LLM_CLASSIFIER_MODEL?: string;
   LLM_CLASSIFIER_LIMIT?: string;
+  SENTRY_DSN?: string;
+  SENTRY_ENVIRONMENT?: string;
+  SENTRY_RELEASE?: string;
+  SENTRY_TRACES_SAMPLE_RATE?: string;
 }
 
 export function createApp(options: AppOptions) {
@@ -494,7 +498,7 @@ function corsHeaders(): Record<string, string> {
   return {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
-    "access-control-allow-headers": "content-type,x-admin-token,x-ingest-signature"
+    "access-control-allow-headers": "content-type,x-admin-token,x-ingest-signature,sentry-trace,baggage"
   };
 }
 

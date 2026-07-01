@@ -475,6 +475,18 @@ describe("worker routes", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("x-ingest-signature");
   });
 
+  it("allows browser preflight for Sentry tracing headers", async () => {
+    const app = createApp({ repo: new MemoryRepository() });
+
+    const response = await app.fetch(new Request("https://api.test/api/candidates", {
+      method: "OPTIONS"
+    }));
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-headers")).toContain("sentry-trace");
+    expect(response.headers.get("access-control-allow-headers")).toContain("baggage");
+  });
+
   it("runs fixture ingestion through an admin endpoint", async () => {
     const app = createApp({ repo: new MemoryRepository(), adminToken: "secret", ingestToken: "ingest-secret" });
 

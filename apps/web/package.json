@@ -6,11 +6,13 @@
   "scripts": {
     "build": "vite build",
     "deploy": "VITE_API_BASE=https://stock-analytics-v2-worker.acejou27.workers.dev vite build && wrangler pages deploy dist --project-name stock-analytics-v2",
+    "deploy:sentry": "test -n \"$SENTRY_AUTH_TOKEN\" || (echo \"SENTRY_AUTH_TOKEN is required for Sentry source map upload\" >&2; exit 1); test -n \"$VITE_SENTRY_DSN\" || (echo \"VITE_SENTRY_DSN is required for Sentry runtime initialization\" >&2; exit 1); export VITE_SENTRY_RELEASE=${VITE_SENTRY_RELEASE:-$(git rev-parse HEAD)} VITE_SENTRY_ENVIRONMENT=${VITE_SENTRY_ENVIRONMENT:-production} SENTRY_ORG=${SENTRY_ORG:-zhenheai} SENTRY_PROJECT=${SENTRY_PROJECT:-stock-analyticsv2-web} && VITE_API_BASE=https://stock-analytics-v2-worker.acejou27.workers.dev vite build && wrangler pages deploy dist --project-name stock-analytics-v2",
     "dev": "vite --host 127.0.0.1",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/react": "^10.62.0",
     "@stock-analytics/shared": "workspace:*",
     "@vitejs/plugin-react": "^4.3.4",
     "react": "^18.3.1",
@@ -18,6 +20,7 @@
     "vite": "^5.4.11"
   },
   "devDependencies": {
+    "@sentry/vite-plugin": "^5.3.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "vitest": "^2.1.9",
