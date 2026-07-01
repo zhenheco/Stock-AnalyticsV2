@@ -2,6 +2,7 @@ import { appFromEnv, createDailySnapshot, type WorkerEnv } from "./app";
 import { runIngestion } from "./ingest";
 import { D1Repository } from "./repository/d1";
 import type { Repository } from "./repository/types";
+import { withSentry } from "./sentry";
 import { fetchLiveSources } from "./sources/live";
 
 type TestableWorkerEnv = WorkerEnv & {
@@ -9,7 +10,7 @@ type TestableWorkerEnv = WorkerEnv & {
   __fetcher?: typeof fetch;
 };
 
-export default {
+export const rawWorker = {
   fetch(request: Request, env: WorkerEnv): Promise<Response> {
     return appFromEnv(env).fetch(request);
   },
@@ -34,3 +35,5 @@ export default {
     await repo.saveSnapshot(await createDailySnapshot(repo, now));
   }
 };
+
+export default withSentry(rawWorker);

@@ -6,16 +6,22 @@
   "scripts": {
     "build": "tsc --noEmit",
     "deploy": "wrangler deploy",
+    "deploy:sentry": "export SENTRY_RELEASE=${SENTRY_RELEASE:-$(git rev-parse HEAD)} && wrangler deploy --dry-run --outdir /tmp/stock-analyticsv2-worker-wrangler-dryrun && pnpm sentry:sourcemaps && wrangler deploy /tmp/stock-analyticsv2-worker-wrangler-dryrun/index.js --config wrangler.toml --no-bundle --upload-source-maps --keep-vars --var SENTRY_RELEASE:$SENTRY_RELEASE",
     "dev": "wrangler dev",
     "migrate:local": "wrangler d1 migrations apply stock-analytics-v2 --local",
     "migrate:remote": "wrangler d1 migrations apply stock-analytics-v2 --remote",
+    "sentry:sourcemaps": "SENTRY_ORG=${SENTRY_ORG:-zhenheai}; SENTRY_PROJECT=${SENTRY_PROJECT:-stock-analyticsv2-worker}; sentry-cli sourcemaps inject /tmp/stock-analyticsv2-worker-wrangler-dryrun && sentry-cli sourcemaps upload /tmp/stock-analyticsv2-worker-wrangler-dryrun --org \"$SENTRY_ORG\" --project \"$SENTRY_PROJECT\" --release \"$SENTRY_RELEASE\"",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/cloudflare": "^10.62.0",
     "@stock-analytics/shared": "workspace:*"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260630.1",
+    "@sentry/cli": "^3.6.0",
+    "@types/node": "^26.0.1",
     "vitest": "^2.1.9",
     "wrangler": "^3.91.0"
   }
